@@ -14,6 +14,13 @@ struct Planets {
     uint256 CoordinateY;
     uint256 CoordinateZ;
     uint256 Radius;
+    uint256 startWorld;
+    uint256 finishWorld;
+    uint256 PrizePool;
+    string chain;
+    string version;
+    string techLink;
+
 }
 
 
@@ -31,11 +38,20 @@ constructor ()  {
 
  
 
-function planetInsert(string memory name, address adres, uint256 pX, uint256 pY, uint256 pZ, uint256 R) public returns (bool) {
+function planetInsert(string memory name, address adres, 
+                      uint256 pX, uint256 pY, uint256 pZ, uint256 R,
+                      uint256 lifeWorld, uint256 prize,
+                      string memory chain, string memory version,
+                      string memory techLink
+                      ) public returns (bool) {
             require(msg.sender == owner, "only owner");
             planetCount++;
 
-            mapPlanets[planetCount] = Planets(name,adres,pX,pY,pZ,R);
+            uint256 finish = block.timestamp + ( lifeWorld * 86400 );
+
+            mapPlanets[planetCount] = Planets(name,adres,pX,pY,pZ,R,block.timestamp,finish,prize,chain,version,techLink);
+
+         
 
 
             return true;
