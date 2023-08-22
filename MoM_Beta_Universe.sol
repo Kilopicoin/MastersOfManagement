@@ -60,7 +60,12 @@ function planetInsert(string memory name, address adres,
 
 
 
+function simdi() public view returns (uint256)  {
 
+        uint256 simdix = block.timestamp;
+
+        return (simdix);
+    }
 
 
 
