@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.18;
 
+interface Wars {
+function W_AddRealm(address adres, uint256 no) external;
+function W_AddSoldier(uint256 no, uint256 asker, uint256 adet) external;
+function W_RemoveSoldier(uint256 no, uint256 asker, uint256 adet) external;
+function W_Battle(uint256 attacker, uint256 defender) external;
+function W_EndAttack(uint256 attacker, uint256 target) external;
+function W_ReleaseAttack (uint256 no, uint256 turnUsed) external;
+}
+
+
 contract Planet {
 
 struct Realm_Pos{
@@ -35,8 +45,17 @@ struct Realm_TurnsX{
     uint256 turn;
 }
 
+struct Attacks{
+    uint256 target;
+    uint256 turn;
+    uint256 half;
+}
+
 address public owner;
+address public input;
 address public A_Feedback;
+
+Wars public A_Wars;
 
 bool public statusWorld;
 
@@ -48,33 +67,26 @@ uint256 public RealmCount;
     mapping (uint256 => string) public Realm_Name;
     mapping (uint256 => Realm_Pos) public Realm_PosX;
     mapping (uint256 => Realm_Res) public Realm_ResX;
-
     mapping (uint256 => Realm_TurnsX) public Realm_Turns; // Turn sayacı
-
     mapping (uint256 => int256) public Realm_Reputation; 
     // reputasyon sayacı -+ 2000 levels outcast despicable scoundrel unsavory rude neut fair kind good honest trustworthy
-
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_Diplomacy; 
     // ilişki kaydı - neut0 ally1 enemy2
-
     mapping (uint256 => uint256) public Realm_Clan; // Clan kaydı
     mapping (uint256 => string) public Clans; // Clanlar kaydı
-
     mapping (uint256 => uint256) public Realm_Points; // puan kaydı
-
     mapping (uint256 => uint256) public Realm_PopOrder; // ülke-kalan tur
-
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_Buildings; // tip ve adet sayacı
     mapping (uint256 => mapping (uint256 => Realm_Buildingz)) public Realm_BuildingzX; // numara ve tip-koordinat
     mapping (uint256 => uint256) public Realm_BuildingCount; // numara sayacı
-
     mapping (uint256 => bool) public Realm_PauseConstructions;
     mapping (uint256 => bool) public Realm_PauseResearches;
     mapping (uint256 => bool) public Realm_PauseProductions;
     mapping (uint256 => bool) public Realm_PauseTrainings;
-
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_Weapons; // 2-Wooden Club, 3-Wooden Axe ...
-    mapping (uint256 => mapping (uint256 => uint256)) public Realm_Soldiers; // 2-Wooden Club, 3-Wooden Axe ...
+    
+    mapping (uint256 => mapping (uint256 => Attacks)) public Realm_Attacks; // saldırı adedi
+    mapping (uint256 => uint256) public Realm_AttacksCount; // numara sayacı
 
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_Techs; // no'lar tipi, 1-0 on-off
 
@@ -95,14 +107,15 @@ uint256 public RealmCount;
 
     mapping (int256 => mapping (int256 => bool)) public Occupied; // x - y - dolu - boş
 
-constructor (address feedbackAdres, uint256 lifeWorld)  {
+constructor (Wars warsAdres, address feedbackAdres, uint256 lifeWorld)  {
 
     owner = msg.sender;
-statusWorld = false;
-A_Feedback = feedbackAdres;
-finishWorld = block.timestamp + ( lifeWorld * 86400 );
+    statusWorld = false;
+    A_Feedback = feedbackAdres;
+    A_Wars = warsAdres;
+    finishWorld = block.timestamp + ( lifeWorld * 86400 );
 
-    }
+}
 
 struct useTurnG{
         uint256 turnA;
@@ -129,43 +142,38 @@ struct useTurnG{
         uint256 newtrainingQuantity;
         uint256 cancelTraining;
         uint256 pauseTrainings;
-        
     }
-
 
 function useTurn(useTurnG memory useTurnGx) public {
 
-require(statusWorld, "Passive");
+require(statusWorld, "Pas");
 
- if ( block.timestamp > finishWorld ) {
+if ( block.timestamp > finishWorld ) {
             statusWorld = false;
-        } else {
+} else {
 
-
-
-        require(RealmCreated[msg.sender] != 0, "No Realm");
+        require(RealmCreated[msg.sender] != 0, "Real");
         calcTurn();
         uint256 realmnum = RealmCreated[msg.sender];
-		require(Realm_Turns[realmnum].turn >= useTurnGx.turnA, "TurnX");
-        require(Realm_ResX[realmnum].popu >= useTurnGx.foodworker + useTurnGx.woodworker, "PopLimit");
+		require(Realm_Turns[realmnum].turn >= useTurnGx.turnA, "Tur");
+        require(Realm_ResX[realmnum].popu >= useTurnGx.foodworker + useTurnGx.woodworker, "Pop");
 
-        
         Realm_Turns[realmnum].turn -= useTurnGx.turnA;
         Realm_Turns[realmnum].start = block.timestamp;
 
         Realm_Reputation[realmnum] += int256(useTurnGx.turnA) ;
         Realm_Points[realmnum] += useTurnGx.turnA ;
 
-
         Realm_ResX[realmnum].foodWorker = useTurnGx.foodworker;
         Realm_ResX[realmnum].woodWorker = useTurnGx.woodworker;
         Realm_ResX[realmnum].food += (Realm_ResX[realmnum].foodWorker * Realm_ResX[realmnum].foodFactor * useTurnGx.turnA);
         Realm_ResX[realmnum].wood += (Realm_ResX[realmnum].woodWorker * Realm_ResX[realmnum].woodFactor * useTurnGx.turnA);
 
+
+        
+
         if (useTurnGx.poplinecancel == 1) {
-
             Realm_PopOrder[realmnum] = 0;
-
         }
         if (useTurnGx.poporder != 0) {
             if (Realm_PopOrder[realmnum] == 0 ) {
@@ -173,500 +181,294 @@ require(statusWorld, "Passive");
             }
         }
 
-
-
-
 if ( useTurnGx.cancelTraining != 0 ){
-
     Realm_BuildingzX[realmnum][useTurnGx.cancelTraining].research = 0;
     Realm_BuildingzX[realmnum][useTurnGx.cancelTraining].researchProgress = 0;
-
 }
 
-
-
-
 if ( useTurnGx.pauseTrainings == 1) {
-
     Realm_PauseTrainings[realmnum] = true;
-
 } else {
-
     Realm_PauseTrainings[realmnum] = false;
 }
 
-
-
-
 if ( useTurnGx.newtraining > 1 ) {
-
-    require(Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].research == 0, "building busy");
+    require(Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].research == 0, "busy");
 
     if ( useTurnGx.newtraining < 6  ) {
-
-    require(Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].typeB == 6, "Pit");
-
-    Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].research = useTurnGx.newtraining;
-
-    Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].just = 1;
-
-
-Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].researchProgress = useTurnGx.newtrainingQuantity * Trainings_Global[useTurnGx.newtraining];
-   
-    
-
+        require(Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].typeB == 6, "Pit");
+        Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].research = useTurnGx.newtraining;
+        Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].just = 1;
+        Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].researchProgress = useTurnGx.newtrainingQuantity * Trainings_Global[useTurnGx.newtraining];
     }
-
 }
-
-
-
-if ( Realm_PauseTrainings[realmnum] == false ) {
-
-for(uint k=0; k<Realm_BuildingCount[realmnum]; k++){
-                uint c = k + 1;
-
-if ( Realm_BuildingzX[realmnum][c].research != 0 && Realm_BuildingzX[realmnum][c].typeB == 6) {
-
-    if ( Realm_BuildingzX[realmnum][c].researchProgress > useTurnGx.turnA ) {
-
-            Realm_ResX[realmnum].food -= (useTurnGx.turnA * Trainings_Global_food[Realm_BuildingzX[realmnum][c].research]);
-            Realm_ResX[realmnum].wood -= (useTurnGx.turnA * Trainings_Global_wood[Realm_BuildingzX[realmnum][c].research]);
-            Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] -= useTurnGx.turnA;
-
-
-uint256 eski = Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research];
-                Realm_BuildingzX[realmnum][c].researchProgress -= useTurnGx.turnA;
-                uint256 yeni = Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research];
-
-                uint256 fark;
-                if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
-                    fark = (eski - yeni) - 1;
-                    Realm_BuildingzX[realmnum][c].just = 0;
-                } else {
-                    fark = eski - yeni;
-                }
-
-                Realm_Soldiers[realmnum][Realm_BuildingzX[realmnum][c].research] += fark;
-
-
-
-    } else {
-
-            Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].researchProgress * Trainings_Global_food[Realm_BuildingzX[realmnum][c].research]);
-            Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].researchProgress * Trainings_Global_wood[Realm_BuildingzX[realmnum][c].research]);
-            Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] -= Realm_BuildingzX[realmnum][c].researchProgress;
-
-            uint256 yeniasker;
-                if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
-                    yeniasker = ( Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research] );
-                    Realm_BuildingzX[realmnum][c].just = 0;
-
-                } else {
-
-                    yeniasker = ( Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research] ) + 1;
-
-                }
-
-            
-                Realm_Soldiers[realmnum][Realm_BuildingzX[realmnum][c].research] += yeniasker;
-
-
-
-            
-            Realm_BuildingzX[realmnum][c].researchProgress = 0;
-            Realm_BuildingzX[realmnum][c].research = 0;
-
-
-
-
-    }
-
-
-}
-
-
-}
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 if ( useTurnGx.cancelProduction != 0 ){
-
     Realm_BuildingzX[realmnum][useTurnGx.cancelProduction].research = 0;
     Realm_BuildingzX[realmnum][useTurnGx.cancelProduction].researchProgress = 0;
-
 }
 
-
-
-
 if ( useTurnGx.pauseProductions == 1) {
-
     Realm_PauseProductions[realmnum] = true;
-
 } else {
-
     Realm_PauseProductions[realmnum] = false;
 }
 
-
-
-
-
-
-
 if ( useTurnGx.newproduction > 1 ) {
-
-    require(Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].research == 0, "building busy");
-
+    require(Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].research == 0, "busy");
     if ( useTurnGx.newproduction < 6  ) {
-
-    require(Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].typeB == 5, "Armory");
-
-    Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].research = useTurnGx.newproduction;
-
-    Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].just = 1;
-
-
-Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].researchProgress = useTurnGx.newproductionQuantity * Productions_Global[useTurnGx.newproduction];
-   
-    
-
+        require(Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].typeB == 5, "Arm");
+        Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].research = useTurnGx.newproduction;
+        Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].just = 1;
+        Realm_BuildingzX[realmnum][useTurnGx.newproductionBuildingID].researchProgress = useTurnGx.newproductionQuantity * Productions_Global[useTurnGx.newproduction];
     }
-
 }
-
-
-
-
-if ( Realm_PauseProductions[realmnum] == false ) {
-
-for(uint k=0; k<Realm_BuildingCount[realmnum]; k++){
-                uint c = k + 1;
-
-if ( Realm_BuildingzX[realmnum][c].research != 0 && Realm_BuildingzX[realmnum][c].typeB == 5) {
-
-    if ( Realm_BuildingzX[realmnum][c].researchProgress > useTurnGx.turnA ) {
-
-            Realm_ResX[realmnum].food -= (useTurnGx.turnA * Productions_Global_food[Realm_BuildingzX[realmnum][c].research]);
-            Realm_ResX[realmnum].wood -= (useTurnGx.turnA * Productions_Global_wood[Realm_BuildingzX[realmnum][c].research]);
-
-
-uint256 eski = Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research];
-                Realm_BuildingzX[realmnum][c].researchProgress -= useTurnGx.turnA;
-                uint256 yeni = Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research];
-
-                uint256 fark;
-                if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
-                    fark = (eski - yeni) - 1;
-                    Realm_BuildingzX[realmnum][c].just = 0;
-                } else {
-                    fark = eski - yeni;
-                }
-
-                Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] += fark;
-
-
-
-    } else {
-
-            Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].researchProgress * Productions_Global_food[Realm_BuildingzX[realmnum][c].research]);
-            Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].researchProgress * Productions_Global_wood[Realm_BuildingzX[realmnum][c].research]);
-
-            uint256 yeniweapon;
-                if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
-                    yeniweapon = ( Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research] );
-                    Realm_BuildingzX[realmnum][c].just = 0;
-                    
-
-                } else {
-
-                    yeniweapon = ( Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research] ) + 1;
-
-                }
-
-            
-                Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] += yeniweapon;
-
-
-
-            
-            Realm_BuildingzX[realmnum][c].researchProgress = 0;
-            Realm_BuildingzX[realmnum][c].research = 0;
-
-
-
-
-    }
-
-
-}
-
-
-}
-
-}
-
-
-
-
-
-
-
-
-
-
 
 if ( useTurnGx.cancelResearch != 0 ){
-
     Realm_BuildingzX[realmnum][useTurnGx.cancelResearch].research = 0;
     Realm_BuildingzX[realmnum][useTurnGx.cancelResearch].researchProgress = 0;
-
 }
 
-
-
-
 if ( useTurnGx.pauseResearches == 1) {
-
     Realm_PauseResearches[realmnum] = true;
-
 } else {
-
     Realm_PauseResearches[realmnum] = false;
 }
 
-
-
-
 if ( useTurnGx.newresearch > 1 ) {
-
-    require(Realm_Techs[realmnum][useTurnGx.newresearch] == 0, "already done");
-    require(Realm_BuildingzX[realmnum][useTurnGx.newresearchBuildingID].research == 0, "building busy");
+    require(Realm_Techs[realmnum][useTurnGx.newresearch] == 0, "done");
+    require(Realm_BuildingzX[realmnum][useTurnGx.newresearchBuildingID].research == 0, "busy");
 
     if ( useTurnGx.newresearch < 7  ) {
-
-    require(Realm_BuildingzX[realmnum][useTurnGx.newresearchBuildingID].typeB == 4, "Workshop");
-
-    Realm_BuildingzX[realmnum][useTurnGx.newresearchBuildingID].research = useTurnGx.newresearch;
-    Realm_BuildingzX[realmnum][useTurnGx.newresearchBuildingID].researchProgress = Researches_Global[useTurnGx.newresearch];
-
+        require(Realm_BuildingzX[realmnum][useTurnGx.newresearchBuildingID].typeB == 4, "Work");
+        Realm_BuildingzX[realmnum][useTurnGx.newresearchBuildingID].research = useTurnGx.newresearch;
+        Realm_BuildingzX[realmnum][useTurnGx.newresearchBuildingID].researchProgress = Researches_Global[useTurnGx.newresearch];
     }
-
 } else if ( useTurnGx.newresearch == 1 ) {
 
-
 }
-
-
-
-
-
-if ( Realm_PauseResearches[realmnum] == false ) {
-
-for(uint k=0; k<Realm_BuildingCount[realmnum]; k++){
-                uint c = k + 1;
-
-if ( Realm_BuildingzX[realmnum][c].research != 0 && Realm_BuildingzX[realmnum][c].typeB == 4) {
-
-    if ( Realm_BuildingzX[realmnum][c].researchProgress > useTurnGx.turnA ) {
-
-            Realm_ResX[realmnum].food -= (useTurnGx.turnA * Researches_Global_food[Realm_BuildingzX[realmnum][c].research]);
-            Realm_ResX[realmnum].wood -= (useTurnGx.turnA * Researches_Global_wood[Realm_BuildingzX[realmnum][c].research]);
-
-        Realm_BuildingzX[realmnum][c].researchProgress -= useTurnGx.turnA;
-
-    } else {
-
-            Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].researchProgress * Researches_Global_food[Realm_BuildingzX[realmnum][c].research]);
-            Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].researchProgress * Researches_Global_wood[Realm_BuildingzX[realmnum][c].research]);
-
-        if ( Realm_BuildingzX[realmnum][c].research == 2 ) {
-            Realm_ResX[realmnum].foodFactor += 2;
-        } else if ( Realm_BuildingzX[realmnum][c].research == 3 ) {
-            Realm_ResX[realmnum].woodFactor += 2;
-        } else if ( Realm_BuildingzX[realmnum][c].research == 4 ) {
-            Realm_ResX[realmnum].popuLimit += 6;
-        } else if ( Realm_BuildingzX[realmnum][c].research == 5 ) {
-
-        } else if ( Realm_BuildingzX[realmnum][c].research == 6 ) {
-
-        }
-
-        Realm_BuildingzX[realmnum][c].researchProgress = 0;
-        Realm_Techs[realmnum][Realm_BuildingzX[realmnum][c].research] = 1;
-
-        if ( Researches_Global[Realm_BuildingzX[realmnum][c].research] > 60) {
-            Researches_Global[Realm_BuildingzX[realmnum][c].research] -= 1;
-        }
-        Realm_BuildingzX[realmnum][c].research = 0;
-
-
-
-
-    }
-
-
-}
-
-
-}
-
-}
-
-
-
-
-
-
-
-
-
 
 if ( useTurnGx.cancelConstruction != 0 ){
-
     delete Realm_BuildingzX[realmnum][useTurnGx.cancelConstruction];
 }
 
-
 if ( useTurnGx.pauseConstructions == 1) {
-
     Realm_PauseConstructions[realmnum] = true;
-
 } else {
-
     Realm_PauseConstructions[realmnum] = false;
 }
 
-
-
-
-        if ( useTurnGx.newbuilding != 0) {
-
-            Realm_BuildingCount[realmnum]++;
-            
+if ( useTurnGx.newbuilding != 0) {
+    Realm_BuildingCount[realmnum]++; 
 Realm_BuildingzX[realmnum][Realm_BuildingCount[realmnum]] = Realm_Buildingz(useTurnGx.newbuilding,useTurnGx.newbuildingX,useTurnGx.newbuildingY,Constructions_Global[useTurnGx.newbuilding],0,0,0);
+} 
 
-        
 
-        } 
+for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
 
-            
-            
-            
-if ( Realm_PauseConstructions[realmnum] == false ) {
-            
-for(uint b=0; b<Realm_BuildingCount[realmnum]; b++){
-                uint c = b + 1;
+    if ( Realm_BuildingzX[realmnum][c].construction != 0 && Realm_PauseConstructions[realmnum] == false ) {
+        if ( Realm_BuildingzX[realmnum][c].construction > useTurnGx.turnA) {
+            Realm_ResX[realmnum].food -= (useTurnGx.turnA * Constructions_Global_food[Realm_BuildingzX[realmnum][c].typeB]);
+            Realm_ResX[realmnum].wood -= (useTurnGx.turnA * Constructions_Global_wood[Realm_BuildingzX[realmnum][c].typeB]);
+            Realm_BuildingzX[realmnum][c].construction -= useTurnGx.turnA;
+        } else {
+            Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].construction * Constructions_Global_food[Realm_BuildingzX[realmnum][c].typeB]);
+            Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].construction * Constructions_Global_wood[Realm_BuildingzX[realmnum][c].typeB]);
+            Realm_BuildingzX[realmnum][c].construction = 0;
 
-                if ( Realm_BuildingzX[realmnum][c].construction != 0 ) {
+            if (Realm_BuildingzX[realmnum][c].typeB == 2) {
+                Realm_ResX[realmnum].popuLimit += 2;
+            } else if (Realm_BuildingzX[realmnum][c].typeB == 3) {
+                Realm_ResX[realmnum].foodFactor += 1;
+                Realm_ResX[realmnum].woodFactor += 1;
+            }
+        }
+    }
 
-                    if ( Realm_BuildingzX[realmnum][c].construction > useTurnGx.turnA) {
 
-                    Realm_ResX[realmnum].food -= (useTurnGx.turnA * Constructions_Global_food[Realm_BuildingzX[realmnum][c].typeB]);
-                    Realm_ResX[realmnum].wood -= (useTurnGx.turnA * Constructions_Global_wood[Realm_BuildingzX[realmnum][c].typeB]);
-                    Realm_BuildingzX[realmnum][c].construction -= useTurnGx.turnA;
+    if ( Realm_BuildingzX[realmnum][c].research != 0 ) {
 
-                    } else {
+        if ( Realm_PauseResearches[realmnum] == false && Realm_BuildingzX[realmnum][c].typeB == 4 ) {
+            if ( Realm_BuildingzX[realmnum][c].researchProgress > useTurnGx.turnA ) {
+                Realm_ResX[realmnum].food -= (useTurnGx.turnA * Researches_Global_food[Realm_BuildingzX[realmnum][c].research]);
+                Realm_ResX[realmnum].wood -= (useTurnGx.turnA * Researches_Global_wood[Realm_BuildingzX[realmnum][c].research]);
+                Realm_BuildingzX[realmnum][c].researchProgress -= useTurnGx.turnA;
+            } else {
+                Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].researchProgress * Researches_Global_food[Realm_BuildingzX[realmnum][c].research]);
+                Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].researchProgress * Researches_Global_wood[Realm_BuildingzX[realmnum][c].research]);
 
-                    Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].construction * Constructions_Global_food[Realm_BuildingzX[realmnum][c].typeB]);
-                    Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].construction * Constructions_Global_wood[Realm_BuildingzX[realmnum][c].typeB]);
-                    Realm_BuildingzX[realmnum][c].construction = 0;
+                if (Realm_BuildingzX[realmnum][c].research == 2) {
+                    Realm_ResX[realmnum].foodFactor += 2;
+                } else if (Realm_BuildingzX[realmnum][c].research == 3) {
+                    Realm_ResX[realmnum].woodFactor += 2;
+                } else if (Realm_BuildingzX[realmnum][c].research == 4) {
+                    Realm_ResX[realmnum].popuLimit += 6;
+                } else if (Realm_BuildingzX[realmnum][c].research == 5) {
+                    // Handle case 5 if needed
+                } else if (Realm_BuildingzX[realmnum][c].research == 6) {
+                    // Handle case 6 if needed
+                }
 
-                        if ( Realm_BuildingzX[realmnum][c].typeB == 2 ) {
-                            Realm_ResX[realmnum].popuLimit += 2;
-                        } else if ( Realm_BuildingzX[realmnum][c].typeB == 3 ) {
-                            Realm_ResX[realmnum].foodFactor += 1;
-                            Realm_ResX[realmnum].woodFactor += 1;
-                        }
-
+                Realm_BuildingzX[realmnum][c].researchProgress = 0;
+                Realm_Techs[realmnum][Realm_BuildingzX[realmnum][c].research] = 1;
+                    if ( Researches_Global[Realm_BuildingzX[realmnum][c].research] > 60) {
+                        Researches_Global[Realm_BuildingzX[realmnum][c].research] -= 1;
                     }
+                Realm_BuildingzX[realmnum][c].research = 0;
+            }
+        }
 
 
+        if ( Realm_PauseProductions[realmnum] == false && Realm_BuildingzX[realmnum][c].typeB == 5 ) {
+
+            if ( Realm_BuildingzX[realmnum][c].researchProgress > useTurnGx.turnA ) {
+                Realm_ResX[realmnum].food -= (useTurnGx.turnA * Productions_Global_food[Realm_BuildingzX[realmnum][c].research]);
+                Realm_ResX[realmnum].wood -= (useTurnGx.turnA * Productions_Global_wood[Realm_BuildingzX[realmnum][c].research]);
+
+                uint256 eski = Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research];
+                Realm_BuildingzX[realmnum][c].researchProgress -= useTurnGx.turnA;
+                uint256 yeni = Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research];
+
+                Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] += ( eski - yeni );
+                if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
+                    Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] -= 1;
+                    Realm_BuildingzX[realmnum][c].just = 0;
                 }
-
-
-}
-}
-        
-
-
-        
-        
-
-
-
-
-
-        if (Realm_PopOrder[realmnum] != 0 ) {
-
-            if (useTurnGx.turnA >= Realm_PopOrder[realmnum]) {
-
-                require(Realm_ResX[realmnum].food >= Realm_PopOrder[realmnum] * 2, "Food");
-                Realm_ResX[realmnum].food -= (Realm_PopOrder[realmnum] * 2);
-
-                uint256 yenipop;
-                if ( useTurnGx.poporder == 0 ) {
-
-                    yenipop = ( Realm_PopOrder[realmnum] / 60 ) + 1;
-
-                } else {
-
-                    yenipop = ( Realm_PopOrder[realmnum] / 60 );
-
-                }
-
-            
-                Realm_ResX[realmnum].popu += yenipop;
-                Realm_PopOrder[realmnum] = 0;
 
             } else {
+                Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].researchProgress * Productions_Global_food[Realm_BuildingzX[realmnum][c].research]);
+                Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].researchProgress * Productions_Global_wood[Realm_BuildingzX[realmnum][c].research]);
 
-                require(Realm_ResX[realmnum].food >= useTurnGx.turnA * 2, "Food");
-                Realm_ResX[realmnum].food -= (useTurnGx.turnA * 2);
-                uint256 eski = Realm_PopOrder[realmnum] / 60;
-                Realm_PopOrder[realmnum] -= useTurnGx.turnA;
-                uint256 yeni = Realm_PopOrder[realmnum] / 60;
-
-                
-
-                uint256 fark;
-                if ( useTurnGx.poporder == 0 ) {
-                    fark = eski - yeni;
-                } else {
-                    fark = (eski - yeni) - 1;
+Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] += (( Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research] ) + 1);
+                if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
+                    Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] -= 1;
+                    Realm_BuildingzX[realmnum][c].just = 0;
                 }
-                
-                Realm_ResX[realmnum].popu += fark;
 
+                Realm_BuildingzX[realmnum][c].researchProgress = 0;
+                Realm_BuildingzX[realmnum][c].research = 0;
             }
 
         }
 
 
+        if ( Realm_PauseTrainings[realmnum] == false && Realm_BuildingzX[realmnum][c].typeB == 6 ) {
+
+            if ( Realm_BuildingzX[realmnum][c].researchProgress > useTurnGx.turnA ) {
+
+                Realm_ResX[realmnum].food -= (useTurnGx.turnA * Trainings_Global_food[Realm_BuildingzX[realmnum][c].research]);
+                Realm_ResX[realmnum].wood -= (useTurnGx.turnA * Trainings_Global_wood[Realm_BuildingzX[realmnum][c].research]);
+                Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] -= useTurnGx.turnA;
+
+                uint256 eski = Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research];
+                Realm_BuildingzX[realmnum][c].researchProgress -= useTurnGx.turnA;
+                uint256 yeni = Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research];
+
+                A_Wars.W_AddSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, (eski - yeni));
+                if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
+                    A_Wars.W_RemoveSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, 1);
+                    Realm_BuildingzX[realmnum][c].just = 0;
+                }
+
+            } else {
+
+                Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].researchProgress * Trainings_Global_food[Realm_BuildingzX[realmnum][c].research]);
+                Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].researchProgress * Trainings_Global_wood[Realm_BuildingzX[realmnum][c].research]);
+                Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] -= Realm_BuildingzX[realmnum][c].researchProgress;
+
+A_Wars.W_AddSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, (( Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research] ) + 1));
+
+                if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
+                    A_Wars.W_RemoveSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, 1);
+                    Realm_BuildingzX[realmnum][c].just = 0;
+                }
+                Realm_BuildingzX[realmnum][c].researchProgress = 0;
+                Realm_BuildingzX[realmnum][c].research = 0;
+            }
+        }
+    }
+}
+        
+
+if (Realm_PopOrder[realmnum] != 0 ) {
+    if (useTurnGx.turnA >= Realm_PopOrder[realmnum]) {
+        require(Realm_ResX[realmnum].food >= Realm_PopOrder[realmnum] * 2, "Food");
+        Realm_ResX[realmnum].food -= (Realm_PopOrder[realmnum] * 2);
+
+        Realm_ResX[realmnum].popu += ( Realm_PopOrder[realmnum] / 60 );
+        if ( useTurnGx.poporder == 0 ) {
+            Realm_ResX[realmnum].popu += 1;
+        }
+
+        Realm_PopOrder[realmnum] = 0;
+
+    } else {
+        require(Realm_ResX[realmnum].food >= useTurnGx.turnA * 2, "Food");
+        Realm_ResX[realmnum].food -= (useTurnGx.turnA * 2);
+
+        uint256 eski = Realm_PopOrder[realmnum] / 60;
+        Realm_PopOrder[realmnum] -= useTurnGx.turnA;
+        uint256 yeni = Realm_PopOrder[realmnum] / 60;
+
+        Realm_ResX[realmnum].popu += (eski - yeni);
+        if ( useTurnGx.poporder != 0 ) {
+            Realm_ResX[realmnum].popu -= 1;
+        }
+    }
+}
+
+
+
+A_Wars.W_ReleaseAttack(realmnum, useTurnGx.turnA);
+
+if ( Realm_AttacksCount[realmnum] != 0 ) {
+            
+    for(uint c=1; c<=Realm_AttacksCount[realmnum]; c++){
+
+    if ( Realm_Attacks[realmnum][c].turn != 0 ) {
+
+        if ( Realm_Attacks[realmnum][c].turn > useTurnGx.turnA ) {
+
+            Realm_Attacks[realmnum][c].turn -= useTurnGx.turnA;
+
+            if ( Realm_Attacks[realmnum][c].half > Realm_Attacks[realmnum][c].turn ) { 
+
+                A_Wars.W_Battle(realmnum, Realm_Attacks[realmnum][c].target);
+                Realm_Attacks[realmnum][c].half = 0;
+            }
+
+        } else {
+
+            Realm_Attacks[realmnum][c].turn = 0;
+            A_Wars.W_EndAttack(realmnum, Realm_Attacks[realmnum][c].target);
+
+            if ( Realm_Attacks[realmnum][c].half != 0 ) {
+
+                A_Wars.W_Battle(realmnum, Realm_Attacks[realmnum][c].target);
+                 Realm_Attacks[realmnum][c].half = 0;
+            }
+
+
 
         }
 
-     }
+    }
+
+    }
 
 
+}
+
+
+
+
+
+
+}
+}
 
      function calcTurn() public {
-        require(RealmCreated[msg.sender] != 0, "No Realm");
+        require(RealmCreated[msg.sender] != 0, "Real");
         uint256 realmnum = RealmCreated[msg.sender];
 		Realm_Turns[realmnum].turn += ((block.timestamp - Realm_Turns[realmnum].start) / 600 );
         if (Realm_Turns[realmnum].turn > 13005) {
@@ -676,10 +478,6 @@ for(uint b=0; b<Realm_BuildingCount[realmnum]; b++){
         }
 	}
 
-
-
-
-
     function getTurn(address Accc) public view returns (uint256) {
         uint256 realmnum = RealmCreated[Accc];
         if (Realm_Turns[realmnum].turn + ((block.timestamp - Realm_Turns[realmnum].start) / 600 ) > 13005) {
@@ -688,18 +486,12 @@ for(uint b=0; b<Realm_BuildingCount[realmnum]; b++){
    //         return 300 ;
         } else 
         return Realm_Turns[realmnum].turn + ((block.timestamp - Realm_Turns[realmnum].start) / 600) ;
-        
     }
-
-
-
-
 
 function addRealm(int256 pX, int256 pY, string memory name) public {
 
-        require(statusWorld, "Wworld Inactive");
-
-        require(RealmCreated[msg.sender] == 0, "Realm Exists");
+        require(statusWorld, "acti");
+        require(RealmCreated[msg.sender] == 0, "Real");
 
         RealmCount++;
 
@@ -711,19 +503,21 @@ function addRealm(int256 pX, int256 pY, string memory name) public {
 
         Occupied[pX][pY] = true;
 
-
         Realm_Buildings[RealmCount][1] = 1;
         Realm_BuildingCount[RealmCount] = 1;
         Realm_BuildingzX[RealmCount][1] = Realm_Buildingz(1,pX,pY,0,0,0,0);
 
  //       Realm_Turns[RealmCount] = Realm_TurnsX(300,block.timestamp);
-      Realm_Turns[RealmCount] = Realm_TurnsX(13005,block.timestamp);
+        Realm_Turns[RealmCount] = Realm_TurnsX(13005,block.timestamp);
+
+
+        A_Wars.W_AddRealm(msg.sender, RealmCount);
+
+
 	}
 
-
-
-    function setStatusWorld() public {
-        require(msg.sender == owner, "Only owner");
+function setStatusWorld() public {
+        require(msg.sender == owner, "own");
   
         if (statusWorld == false) {
             statusWorld = true;
@@ -732,9 +526,37 @@ function addRealm(int256 pX, int256 pY, string memory name) public {
 	}
 
 
+function AddInputter (address inputter) public {
+    require(msg.sender == owner, "own");
+    input = inputter;
+}
+
+function W_AddAttack (uint256 attacker, uint256 target, uint256 askerTop) public {
+    require(msg.sender == input, "input");
+    Realm_AttacksCount[attacker]++;
+
+    int a = Realm_PosX[attacker].pX - Realm_PosX[target].pX;
+    int b = Realm_PosX[attacker].pY - Realm_PosX[target].pY;
+
+    int top = (a * a) + (b * b);
+
+    uint256 num = uint256(top);
+
+    uint256 distance = num;
+    uint256 y = (distance + 1) / 2;
+        
+    while (y < distance) {
+            distance = y;
+            y = (distance + num / distance) / 2;
+    }
 
 
+    uint256 tur = ((distance / 10 ) * 2 ) + ( askerTop / 10 );
+    uint256 foodCost = tur * askerTop * 10;
 
+    Realm_ResX[attacker].food -= foodCost;
 
+    Realm_Attacks[attacker][Realm_AttacksCount[attacker]] = Attacks(target,tur,tur/2);
+}
 
 }
