@@ -65,6 +65,9 @@ mapping (uint256 => uint256) public RealmNoWarCount;
 mapping(uint256 => mapping (uint256 => uint256)) public AP_Global; // asker tipi-asker tipi-AP, // damage + possibility
 uint[] public HP_Global = [0,0,4,5,5,4]; // WC_Fighter,WA,WS,WB // hp + armor
 
+uint256 public KONTROL1 = 0;
+uint256 public KONTROL2 = 0;
+uint256 public KONTROL3 = 0;
 
 address public input;
 address public owner;
@@ -101,22 +104,22 @@ function AddInputter (address inputter) public {
 }
 
 function W_AddRealm (address adres, uint256 no) public {
-    require(msg.sender == input, "input");
+    // require(msg.sender == input, "input"); //// CRITICAL
     RealmCreated[adres] = no;
 }
 
 function W_AddSoldier (uint256 no, uint256 asker, uint256 adet) public {
-    require(msg.sender == input, "input");
+    // require(msg.sender == input, "input"); //// CRITICAL
     Realm_Soldiers[no][asker] += adet;
 }
 
 function W_RemoveSoldier (uint256 no, uint256 asker, uint256 adet) public {
-    require(msg.sender == input, "input");
+    // require(msg.sender == input, "input"); //// CRITICAL
     Realm_Soldiers[no][asker] -= adet;
 }
 
 function W_ReleaseAttack (uint256 no, uint256 turnUsed) public {
-    require(msg.sender == input, "input");
+    // require(msg.sender == input, "input"); //// CRITICAL
 
     if ( RealmReceivedAttackTurn[no] > turnUsed ) {
         RealmReceivedAttackTurn[no] -= turnUsed;
@@ -201,7 +204,7 @@ for(uint c=2; c<6; c++){
             Realm_Soldiers[realmnum][c] -= toplamTemp[c];
         } 
 
-uint256 toplamAsker = _inputAdets[0] + _inputAdets[1] + _inputAdets[2] + _inputAdets[3] + _inputAdets[4] + _inputAdets[5];
+// uint256 toplamAsker = _inputAdets[0] + _inputAdets[1] + _inputAdets[2] + _inputAdets[3] + _inputAdets[4] + _inputAdets[5]; // CRITICAL
 
 RealmAttacking[realmnum][to_] = 1;
 RealmAttacksive[realmnum][to_] = Attacksive(
@@ -214,7 +217,7 @@ for(uint c=0; c<6; c++){
     RealmAttacksiveAdets[realmnum][to_][c] = _inputAdets[c];
 }
 
-A_Planet.W_AddAttack(realmnum, to_, toplamAsker);
+// A_Planet.W_AddAttack(realmnum, to_, toplamAsker); // CRITICAL
 RealmReceivedAttack[to_] = realmnum;
 
 }
@@ -223,7 +226,7 @@ RealmReceivedAttack[to_] = realmnum;
 
 
 function W_Battle(uint256 attacker, uint256 defender) public {
-require(msg.sender == input, "input");
+// require(msg.sender == input, "input"); //// CRITICAL
 
 RealmNoWarCount[attacker]++;
 RealmNoWarCount[defender]++;
@@ -240,6 +243,8 @@ uint[] memory AktifAtakArea = new uint[](6); // 1 aktif , 0 pasif
 for(uint c=0; c<6; c++){
     HpDefansArea[c] = HP_Global[RealmDefensiveTips[defender][c]] * RealmDefensiveAdets[defender][c];
     HpAtakArea[c] = HP_Global[RealmAttacksiveTips[attacker][defender][c]] * RealmAttacksiveAdets[attacker][defender][c];
+    HpDefansAreaTemp[c] = HP_Global[RealmDefensiveTips[defender][c]] * RealmDefensiveAdets[defender][c];
+    HpAtakAreaTemp[c] = HP_Global[RealmAttacksiveTips[attacker][defender][c]] * RealmAttacksiveAdets[attacker][defender][c];
 }
 
     for(uint c=0; c<6; c++){
@@ -250,9 +255,6 @@ for(uint c=0; c<6; c++){
             AktifAtakArea[c] = 1;
         }
     }
-
-HpDefansAreaTemp = HpDefansArea;
-HpAtakAreaTemp = HpAtakArea;
 
 // Phase 1
 
@@ -266,6 +268,8 @@ for(uint c=0; c<3; c++){
                     HpAtakAreaTemp[c] = 0;
                 }
             }
+
+
             if ( RealmAttacksiveTips[attacker][defender][c] == 5 ) {
                 if ( HpDefansAreaTemp[c] > AP_Global[5][RealmDefensiveTips[defender][c]] * RealmAttacksiveAdets[attacker][defender][c] ) {
                     HpDefansAreaTemp[c] -= AP_Global[5][RealmDefensiveTips[defender][c]] * RealmAttacksiveAdets[attacker][defender][c];
@@ -274,18 +278,13 @@ for(uint c=0; c<3; c++){
                 }
             }
 
-            if ( HpDefansAreaTemp[c] <= HpDefansArea[c] / 2 ) {
-                AktifDefansArea[c] = 0;
-            }
-            if ( HpAtakAreaTemp[c] <= HpAtakArea[c] / 2 ) {
-                AktifAtakArea[c] = 0;
-            }
+            
 
             if ( HpDefansAreaTemp[c] == 0 ) {
                 RealmDefensiveTips[defender][c] = 0;
                 RealmDefensiveAdets[defender][c] = 0;
             } else {
-                RealmDefensiveAdets[defender][c] -= ( RealmDefensiveAdets[defender][c] * HpDefansAreaTemp[c] ) / HpDefansArea[c];
+                RealmDefensiveAdets[defender][c] = ( RealmDefensiveAdets[defender][c] * HpDefansAreaTemp[c] ) / HpDefansArea[c];
                 if ( RealmDefensiveAdets[defender][c] == 0 ) {
                     RealmDefensiveTips[defender][c] = 0;
                 }
@@ -294,10 +293,17 @@ for(uint c=0; c<3; c++){
                 RealmAttacksiveTips[attacker][defender][c] = 0;
                 RealmAttacksiveAdets[attacker][defender][c] = 0;
             } else {
-                RealmAttacksiveAdets[attacker][defender][c] -= ( RealmAttacksiveAdets[attacker][defender][c] * HpAtakAreaTemp[c] ) / HpAtakArea[c];
+                RealmAttacksiveAdets[attacker][defender][c] = ( RealmAttacksiveAdets[attacker][defender][c] * HpAtakAreaTemp[c] ) / HpAtakArea[c];
                 if ( RealmAttacksiveAdets[attacker][defender][c] == 0 ) {
                 RealmAttacksiveTips[attacker][defender][c] = 0;
                 }
+            }
+
+            if ( HpDefansAreaTemp[c] <= HpDefansArea[c] / 2 ) {
+                AktifDefansArea[c] = 0;
+            }
+            if ( HpAtakAreaTemp[c] <= HpAtakArea[c] / 2 ) {
+                AktifAtakArea[c] = 0;
             }
 
         }
@@ -336,6 +342,28 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
         }
     }
 
+
+    if ( HpDefansAreaTemp[c] == 0 ) {
+        RealmDefensiveTips[defender][c] = 0;
+        RealmDefensiveAdets[defender][c] = 0;
+    } else {
+        RealmDefensiveAdets[defender][c] = ( RealmDefensiveAdets[defender][c] * HpDefansAreaTemp[c] ) / HpDefansArea[c];
+        if ( RealmDefensiveAdets[defender][c] == 0 ) {
+            RealmDefensiveTips[defender][c] = 0;
+        }
+    }
+    if ( HpAtakAreaTemp[c] == 0 ) {
+        RealmAttacksiveTips[attacker][defender][c] = 0;
+        RealmAttacksiveAdets[attacker][defender][c] = 0;
+    } else {
+        RealmAttacksiveAdets[attacker][defender][c] = ( RealmAttacksiveAdets[attacker][defender][c] * HpAtakAreaTemp[c] ) / HpAtakArea[c];
+        if ( RealmAttacksiveAdets[attacker][defender][c] == 0 ) {
+            RealmAttacksiveTips[attacker][defender][c] = 0;
+        }
+    }
+
+
+
 } else if ( AktifDefansArea[c] == 0 && AktifAtakArea[c] == 1 ) {
 
     if ( RealmDefensiveTips[defender][c+3] == 5 ) {
@@ -346,6 +374,16 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
         }
     }
 
+    if ( HpAtakAreaTemp[c] == 0 ) {
+        RealmAttacksiveTips[attacker][defender][c] = 0;
+        RealmAttacksiveAdets[attacker][defender][c] = 0;
+    } else {
+        RealmAttacksiveAdets[attacker][defender][c] = ( RealmAttacksiveAdets[attacker][defender][c] * HpAtakAreaTemp[c] ) / HpAtakArea[c];
+        if ( RealmAttacksiveAdets[attacker][defender][c] == 0 ) {
+            RealmAttacksiveTips[attacker][defender][c] = 0;
+        }
+    }
+
 } else if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 0 ) {
 
     if ( RealmAttacksiveTips[attacker][defender][c+3] == 5 ) {
@@ -353,6 +391,16 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
             HpDefansAreaTemp[c] -= AP_Global[5][RealmDefensiveTips[defender][c]] * RealmAttacksiveAdets[attacker][defender][c+3];
         } else {
             HpDefansAreaTemp[c] = 0;
+        }
+    }
+
+    if ( HpDefansAreaTemp[c] == 0 ) {
+        RealmDefensiveTips[defender][c] = 0;
+        RealmDefensiveAdets[defender][c] = 0;
+    } else {
+        RealmDefensiveAdets[defender][c] = ( RealmDefensiveAdets[defender][c] * HpDefansAreaTemp[c] ) / HpDefansArea[c];
+        if ( RealmDefensiveAdets[defender][c] == 0 ) {
+            RealmDefensiveTips[defender][c] = 0;
         }
     }
 
@@ -367,42 +415,192 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
         AktifAtakArea[c] = 0;
     }
 
-    if ( HpDefansAreaTemp[c] == 0 ) {
-        RealmDefensiveTips[defender][c] = 0;
-        RealmDefensiveAdets[defender][c] = 0;
-    } else {
-        RealmDefensiveAdets[defender][c] -= ( RealmDefensiveAdets[defender][c] * HpDefansAreaTemp[c] ) / HpDefansArea[c];
-        if ( RealmDefensiveAdets[defender][c] == 0 ) {
-            RealmDefensiveTips[defender][c] = 0;
-        }
-    }
-    if ( HpAtakAreaTemp[c] == 0 ) {
-        RealmAttacksiveTips[attacker][defender][c] = 0;
-        RealmAttacksiveAdets[attacker][defender][c] = 0;
-    } else {
-        RealmAttacksiveAdets[attacker][defender][c] -= ( RealmAttacksiveAdets[attacker][defender][c] * HpAtakAreaTemp[c] ) / HpAtakArea[c];
-        if ( RealmAttacksiveAdets[attacker][defender][c] == 0 ) {
-            RealmAttacksiveTips[attacker][defender][c] = 0;
-        }
-    }
+
 }
 
 // Phase 3
 
+for(uint c=0; c<3; c++){
+if ( AktifDefansArea[c] == 1 ) {
+    if ( AktifAtakArea[c] == 1 ) {
+
+        if ( HpAtakAreaTemp[c] > ( AP_Global[RealmDefensiveTips[defender][c]][RealmAttacksiveTips[attacker][defender][c]] + 1 ) * RealmDefensiveAdets[defender][c] ) {
+            HpAtakAreaTemp[c] -= ( AP_Global[RealmDefensiveTips[defender][c]][RealmAttacksiveTips[attacker][defender][c]] + 1 ) * RealmDefensiveAdets[defender][c];
+        } else {
+            HpAtakAreaTemp[c] = 0;
+        }
+
+        if ( HpDefansAreaTemp[c] > AP_Global[RealmAttacksiveTips[attacker][defender][c]][RealmDefensiveTips[defender][c]] * RealmAttacksiveAdets[attacker][defender][c] ) {
+            HpDefansAreaTemp[c] -= AP_Global[RealmAttacksiveTips[attacker][defender][c]][RealmDefensiveTips[defender][c]] * RealmAttacksiveAdets[attacker][defender][c];
+        } else {
+            HpDefansAreaTemp[c] = 0;
+        }
+
+        if ( HpDefansAreaTemp[c] == 0 ) {
+        RealmDefensiveTips[defender][c] = 0;
+        RealmDefensiveAdets[defender][c] = 0;
+        } else {
+        RealmDefensiveAdets[defender][c] = ( RealmDefensiveAdets[defender][c] * HpDefansAreaTemp[c] ) / HpDefansArea[c];
+        if ( RealmDefensiveAdets[defender][c] == 0 ) {
+            RealmDefensiveTips[defender][c] = 0;
+        }
+        }
+        if ( HpAtakAreaTemp[c] == 0 ) {
+        RealmAttacksiveTips[attacker][defender][c] = 0;
+        RealmAttacksiveAdets[attacker][defender][c] = 0;
+        } else {
+        RealmAttacksiveAdets[attacker][defender][c] = ( RealmAttacksiveAdets[attacker][defender][c] * HpAtakAreaTemp[c] ) / HpAtakArea[c];
+        if ( RealmAttacksiveAdets[attacker][defender][c] == 0 ) {
+            RealmAttacksiveTips[attacker][defender][c] = 0;
+        }
+        }
+
+
+    }
+
+    if ( AktifAtakArea[c+3] == 1 ) {
+
+        if ( HpAtakAreaTemp[c+3] > ( AP_Global[RealmDefensiveTips[defender][c]][RealmAttacksiveTips[attacker][defender][c+3]] + 1 ) * RealmDefensiveAdets[defender][c] ) {
+            HpAtakAreaTemp[c+3] -= ( AP_Global[RealmDefensiveTips[defender][c]][RealmAttacksiveTips[attacker][defender][c+3]] + 1 ) * RealmDefensiveAdets[defender][c];
+        } else {
+            HpAtakAreaTemp[c+3] = 0;
+        }
+
+        if ( HpDefansAreaTemp[c] > AP_Global[RealmAttacksiveTips[attacker][defender][c+3]][RealmDefensiveTips[defender][c]] * RealmAttacksiveAdets[attacker][defender][c+3] ) {
+            HpDefansAreaTemp[c] -= AP_Global[RealmAttacksiveTips[attacker][defender][c+3]][RealmDefensiveTips[defender][c]] * RealmAttacksiveAdets[attacker][defender][c+3];
+        } else {
+            HpDefansAreaTemp[c] = 0;
+        }
+
+
+        if ( HpDefansAreaTemp[c] == 0 ) {
+        RealmDefensiveTips[defender][c] = 0;
+        RealmDefensiveAdets[defender][c] = 0;
+        } else {
+        RealmDefensiveAdets[defender][c] = ( RealmDefensiveAdets[defender][c] * HpDefansAreaTemp[c] ) / HpDefansArea[c];
+        if ( RealmDefensiveAdets[defender][c] == 0 ) {
+            RealmDefensiveTips[defender][c] = 0;
+        }
+        }
+        if ( HpAtakAreaTemp[c+3] == 0 ) {
+        RealmAttacksiveTips[attacker][defender][c+3] = 0;
+        RealmAttacksiveAdets[attacker][defender][c+3] = 0;
+        } else {
+        RealmAttacksiveAdets[attacker][defender][c+3] = ( RealmAttacksiveAdets[attacker][defender][c+3] * HpAtakAreaTemp[c+3] ) / HpAtakArea[c+3];
+        if ( RealmAttacksiveAdets[attacker][defender][c+3] == 0 ) {
+            RealmAttacksiveTips[attacker][defender][c+3] = 0;
+        }
+        }
+
+
+    }
+}
+
+if ( AktifDefansArea[c+3] == 1 ) {
+    if ( AktifAtakArea[c] == 1 ) {
+
+        if ( HpAtakAreaTemp[c] > ( AP_Global[RealmDefensiveTips[defender][c+3]][RealmAttacksiveTips[attacker][defender][c]] + 1 ) * RealmDefensiveAdets[defender][c+3] ) {
+            HpAtakAreaTemp[c] -= ( AP_Global[RealmDefensiveTips[defender][c+3]][RealmAttacksiveTips[attacker][defender][c]] + 1 ) * RealmDefensiveAdets[defender][c+3];
+        } else {
+            HpAtakAreaTemp[c] = 0;
+        }
+
+        if ( HpDefansAreaTemp[c+3] > AP_Global[RealmAttacksiveTips[attacker][defender][c]][RealmDefensiveTips[defender][c+3]] * RealmAttacksiveAdets[attacker][defender][c] ) {
+            HpDefansAreaTemp[c+3] -= AP_Global[RealmAttacksiveTips[attacker][defender][c]][RealmDefensiveTips[defender][c+3]] * RealmAttacksiveAdets[attacker][defender][c];
+        } else {
+            HpDefansAreaTemp[c+3] = 0;
+        }
+
+
+        if ( HpDefansAreaTemp[c+3] == 0 ) {
+        RealmDefensiveTips[defender][c+3] = 0;
+        RealmDefensiveAdets[defender][c+3] = 0;
+        } else {
+        RealmDefensiveAdets[defender][c+3] = ( RealmDefensiveAdets[defender][c+3] * HpDefansAreaTemp[c+3] ) / HpDefansArea[c+3];
+        if ( RealmDefensiveAdets[defender][c+3] == 0 ) {
+            RealmDefensiveTips[defender][c+3] = 0;
+        }
+        }
+        if ( HpAtakAreaTemp[c] == 0 ) {
+        RealmAttacksiveTips[attacker][defender][c] = 0;
+        RealmAttacksiveAdets[attacker][defender][c] = 0;
+        } else {
+        RealmAttacksiveAdets[attacker][defender][c] = ( RealmAttacksiveAdets[attacker][defender][c] * HpAtakAreaTemp[c] ) / HpAtakArea[c];
+        if ( RealmAttacksiveAdets[attacker][defender][c] == 0 ) {
+            RealmAttacksiveTips[attacker][defender][c] = 0;
+        }
+        }
+
+    }
+
+    if ( AktifAtakArea[c+3] == 1 ) {
+
+        if ( HpAtakAreaTemp[c+3] > ( AP_Global[RealmDefensiveTips[defender][c+3]][RealmAttacksiveTips[attacker][defender][c+3]] + 1 ) * RealmDefensiveAdets[defender][c+3] ) {
+            HpAtakAreaTemp[c+3] -= ( AP_Global[RealmDefensiveTips[defender][c+3]][RealmAttacksiveTips[attacker][defender][c+3]] + 1 ) * RealmDefensiveAdets[defender][c+3];
+        } else {
+            HpAtakAreaTemp[c+3] = 0;
+        }
+
+        if ( HpDefansAreaTemp[c+3] > AP_Global[RealmAttacksiveTips[attacker][defender][c+3]][RealmDefensiveTips[defender][c+3]] * RealmAttacksiveAdets[attacker][defender][c+3] ) {
+            HpDefansAreaTemp[c+3] -= AP_Global[RealmAttacksiveTips[attacker][defender][c+3]][RealmDefensiveTips[defender][c+3]] * RealmAttacksiveAdets[attacker][defender][c+3];
+        } else {
+            HpDefansAreaTemp[c+3] = 0;
+        }
+
+
+        if ( HpDefansAreaTemp[c+3] == 0 ) {
+        RealmDefensiveTips[defender][c+3] = 0;
+        RealmDefensiveAdets[defender][c+3] = 0;
+        } else {
+        RealmDefensiveAdets[defender][c+3] = ( RealmDefensiveAdets[defender][c+3] * HpDefansAreaTemp[c+3] ) / HpDefansArea[c+3];
+        if ( RealmDefensiveAdets[defender][c+3] == 0 ) {
+            RealmDefensiveTips[defender][c+3] = 0;
+        }
+        }
+        if ( HpAtakAreaTemp[c+3] == 0 ) {
+        RealmAttacksiveTips[attacker][defender][c+3] = 0;
+        RealmAttacksiveAdets[attacker][defender][c+3] = 0;
+        } else {
+        RealmAttacksiveAdets[attacker][defender][c+3] = ( RealmAttacksiveAdets[attacker][defender][c+3] * HpAtakAreaTemp[c+3] ) / HpAtakArea[c+3];
+        if ( RealmAttacksiveAdets[attacker][defender][c+3] == 0 ) {
+            RealmAttacksiveTips[attacker][defender][c+3] = 0;
+        }
+        }
 
 
 
+    }
+}
+}
+
+for(uint c=0; c<6; c++){
+
+    if ( HpDefansAreaTemp[c] <= HpDefansArea[c] / 2 ) {
+        AktifDefansArea[c] = 0;
+    }
+    if ( HpAtakAreaTemp[c] <= HpAtakArea[c] / 2 ) {
+        AktifAtakArea[c] = 0;
+    }
+}
 
 
+RealmAttacksive[attacker][defender] = Attacksive(
+    RealmAttacksiveTips[attacker][defender][0],RealmAttacksiveAdets[attacker][defender][0],
+    RealmAttacksiveTips[attacker][defender][1],RealmAttacksiveAdets[attacker][defender][1],
+    RealmAttacksiveTips[attacker][defender][2],RealmAttacksiveAdets[attacker][defender][2],
+    RealmAttacksiveTips[attacker][defender][3],RealmAttacksiveAdets[attacker][defender][3],
+    RealmAttacksiveTips[attacker][defender][4],RealmAttacksiveAdets[attacker][defender][4],
+    RealmAttacksiveTips[attacker][defender][5],RealmAttacksiveAdets[attacker][defender][5]
+                                    );
 
-
-
-
-
-
-
-
-
+RealmDefensive[defender] = Defensive(
+    RealmDefensiveTips[defender][0],RealmDefensiveAdets[defender][0],
+    RealmDefensiveTips[defender][1],RealmDefensiveAdets[defender][1],
+    RealmDefensiveTips[defender][2],RealmDefensiveAdets[defender][2],
+    RealmDefensiveTips[defender][3],RealmDefensiveAdets[defender][3],
+    RealmDefensiveTips[defender][4],RealmDefensiveAdets[defender][4],
+    RealmDefensiveTips[defender][5],RealmDefensiveAdets[defender][5]
+                                    );
 
 RealmNoWarRecords[attacker][RealmNoWarCount[attacker]] = RealmsWarRecords(attacker,defender,block.timestamp,1);
 RealmNoWarRecords[defender][RealmNoWarCount[defender]] = RealmsWarRecords(attacker,defender,block.timestamp,2);
