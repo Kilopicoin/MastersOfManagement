@@ -5,7 +5,6 @@ interface Planet {
 function W_AddAttack(uint256 attacker, uint256 target, uint256 askerTop) external;
 }
 
-
 contract WarsX {
 
 struct Defensive{
@@ -44,10 +43,6 @@ struct RealmsWarRecords{
         uint256 Defender;
         uint256 Date;
         uint256 Rate;
-        uint256[] defansStarttips; // Array field inside the struct
-        uint256[] defansStartadets; // Array field inside the struct
-        uint256[] atakStarttips; // Array field inside the struct
-        uint256[] atakStartadets; // Array field inside the struct
         uint256 defansFaz1Okcu;
         uint256 atakFaz1Okcu;
         uint256 defansFaz2;
@@ -58,10 +53,6 @@ struct RealmsWarRecords{
         uint256 atakFaz2Alt1Okcu;
         uint256 defansFaz3;
         uint256 atakFaz3;
-        uint256[] defansFinishtips; // Array field inside the struct
-        uint256[] defansFinishadets; // Array field inside the struct
-        uint256[] atakFinishtips; // Array field inside the struct
-        uint256[] atakFinishadets; // Array field inside the struct
     }
 
 mapping(address => uint256) public RealmCreated;
@@ -78,14 +69,18 @@ mapping(uint256 => uint256) public RealmReceivedAttack; // Attack protection , k
 mapping(uint256 => uint256) public RealmReceivedAttackTurn; // Attack protection , tur
 
 mapping (uint256 => RealmsWarRecords) public WarRecords; // adet
+mapping(uint256 => uint256[6]) public defansStarttips;
+mapping(uint256 => uint256[6]) public defansStartadets;
+mapping(uint256 => uint256[6]) public atakStarttips;
+mapping(uint256 => uint256[6]) public atakStartadets;
+mapping(uint256 => uint256[6]) public defansFinishtips;
+mapping(uint256 => uint256[6]) public defansFinishadets;
+mapping(uint256 => uint256[6]) public atakFinishtips;
+mapping(uint256 => uint256[6]) public atakFinishadets;
 uint256 public WarCount;
 
 mapping(uint256 => mapping (uint256 => uint256)) public AP_Global; // asker tipi-asker tipi-AP, // damage + possibility
 uint[] public HP_Global = [0,0,4,5,5,4]; // WC_Fighter,WA,WS,WB // hp + armor
-
-uint256 public KONTROL1 = 0;
-uint256 public KONTROL2 = 0;
-uint256 public KONTROL3 = 0;
 
 address public input;
 address public owner;
@@ -112,32 +107,34 @@ constructor () {
 }
 
 function definePlanet (Planet A_PlanetX) public {
-    require(msg.sender == owner, "own");
+    require(msg.sender == owner, "o");
     A_Planet = A_PlanetX;
 }
 
 function AddInputter (address inputter) public {
-    require(msg.sender == owner, "own");
+    require(msg.sender == owner, "o");
     input = inputter;
 }
 
 function W_AddRealm (address adres, uint256 no) public {
-    // require(msg.sender == input, "input"); //// CRITICAL
+  
+  require(msg.sender == input, "i");
     RealmCreated[adres] = no;
 }
 
 function W_AddSoldier (uint256 no, uint256 asker, uint256 adet) public {
-    // require(msg.sender == input, "input"); //// CRITICAL
+  
+  require(msg.sender == input, "i");
     Realm_Soldiers[no][asker] += adet;
 }
 
 function W_RemoveSoldier (uint256 no, uint256 asker, uint256 adet) public {
-    // require(msg.sender == input, "input"); //// CRITICAL
+    require(msg.sender == input, "i");
     Realm_Soldiers[no][asker] -= adet;
 }
 
 function W_ReleaseAttack (uint256 no, uint256 turnUsed) public {
-    // require(msg.sender == input, "input"); //// CRITICAL
+    require(msg.sender == input, "i");
 
     if ( RealmReceivedAttackTurn[no] > turnUsed ) {
         RealmReceivedAttackTurn[no] -= turnUsed;
@@ -150,7 +147,7 @@ function W_ReleaseAttack (uint256 no, uint256 turnUsed) public {
 
 function setDefense(uint[] memory _inputTips, uint[] memory _inputAdets) public {
 
-        require(RealmCreated[msg.sender] != 0, "Real");
+        require(RealmCreated[msg.sender] != 0, "R");
         uint256 realmnum = RealmCreated[msg.sender];
 
         uint[] memory toplamTemp = new uint[](6);
@@ -168,7 +165,7 @@ function setDefense(uint[] memory _inputTips, uint[] memory _inputAdets) public 
         } 
 
         for(uint c=2; c<6; c++){
-                require(toplamTemp[c] <= Realm_Soldiers[realmnum][c], "army");
+                require(toplamTemp[c] <= Realm_Soldiers[realmnum][c], "a");
         } 
 
 RealmDefensive[realmnum] = Defensive(
@@ -187,11 +184,11 @@ for(uint c=0; c<6; c++){
 
 function setAttack(uint[] memory _inputTips, uint[] memory _inputAdets, uint256 to_) public {
 
-        require(RealmCreated[msg.sender] != 0, "Real");
+        require(RealmCreated[msg.sender] != 0, "R");
         uint256 realmnum = RealmCreated[msg.sender];
-        require(RealmAttacking[realmnum][to_] == 0, "Busy");
+        require(RealmAttacking[realmnum][to_] == 0, "B");
 
-        require(RealmReceivedAttack[to_] == 0, "Protect");
+        require(RealmReceivedAttack[to_] == 0, "P");
 
         uint[] memory toplamTemp = new uint[](6);
 
@@ -208,7 +205,7 @@ function setAttack(uint[] memory _inputTips, uint[] memory _inputAdets, uint256 
         } 
 
         for(uint c=2; c<6; c++){
-                require(toplamTemp[c] <= Realm_Soldiers[realmnum][c], "army");
+                require(toplamTemp[c] <= Realm_Soldiers[realmnum][c], "a");
         } 
 
 
@@ -222,7 +219,7 @@ for(uint c=2; c<6; c++){
             Realm_Soldiers[realmnum][c] -= toplamTemp[c];
         } 
 
-// uint256 toplamAsker = _inputAdets[0] + _inputAdets[1] + _inputAdets[2] + _inputAdets[3] + _inputAdets[4] + _inputAdets[5]; // CRITICAL
+uint256 toplamAsker = _inputAdets[0] + _inputAdets[1] + _inputAdets[2] + _inputAdets[3] + _inputAdets[4] + _inputAdets[5];
 
 RealmAttacking[realmnum][to_] = 1;
 RealmAttacksive[realmnum][to_] = Attacksive(
@@ -235,7 +232,7 @@ for(uint c=0; c<6; c++){
     RealmAttacksiveAdets[realmnum][to_][c] = _inputAdets[c];
 }
 
-// A_Planet.W_AddAttack(realmnum, to_, toplamAsker); // CRITICAL
+A_Planet.W_AddAttack(realmnum, to_, toplamAsker);
 RealmReceivedAttack[to_] = realmnum;
 
 }
@@ -244,7 +241,7 @@ RealmReceivedAttack[to_] = realmnum;
 
 
 function W_Battle(uint256 attacker, uint256 defender) public {
-// require(msg.sender == input, "input"); //// CRITICAL
+require(msg.sender == input, "i");
 
 WarCount++;
 
@@ -265,10 +262,10 @@ for(uint c=0; c<6; c++){
 }
 
 for(uint c=0; c<6; c++){
-    WarRecords[WarCount].defansStarttips[c] = RealmDefensiveTips[defender][c];
-    WarRecords[WarCount].defansStartadets[c] = RealmDefensiveAdets[defender][c];
-    WarRecords[WarCount].atakStarttips[c] = RealmAttacksiveTips[attacker][defender][c];
-    WarRecords[WarCount].atakStartadets[c] = RealmAttacksiveAdets[attacker][defender][c];
+    defansStarttips[WarCount][c] = RealmDefensiveTips[defender][c];
+    defansStartadets[WarCount][c] = RealmDefensiveAdets[defender][c];
+    atakStarttips[WarCount][c] = RealmAttacksiveTips[attacker][defender][c];
+    atakStartadets[WarCount][c] = RealmAttacksiveAdets[attacker][defender][c];
 }
 
     for(uint c=0; c<6; c++){
@@ -674,6 +671,7 @@ if ( AktifDefansArea[c+3] == 1 ) {
     }
 }
 }
+
 uint256 rate;
 for(uint c=0; c<6; c++){
 
@@ -683,11 +681,12 @@ for(uint c=0; c<6; c++){
     }
 }
 
+
 for(uint c=0; c<6; c++){
-    WarRecords[WarCount].defansFinishtips[c] = RealmDefensiveTips[defender][c];
-    WarRecords[WarCount].defansFinishadets[c] = RealmDefensiveAdets[defender][c];
-    WarRecords[WarCount].atakFinishtips[c] = RealmAttacksiveTips[attacker][defender][c];
-    WarRecords[WarCount].atakFinishadets[c] = RealmAttacksiveAdets[attacker][defender][c];
+    defansFinishtips[WarCount][c] = RealmDefensiveTips[defender][c];
+    defansFinishadets[WarCount][c] = RealmDefensiveAdets[defender][c];
+    atakFinishtips[WarCount][c] = RealmAttacksiveTips[attacker][defender][c];
+    atakFinishadets[WarCount][c] = RealmAttacksiveAdets[attacker][defender][c];
 }
 
 RealmAttacksive[attacker][defender] = Attacksive(
@@ -719,7 +718,7 @@ RealmReceivedAttackTurn[defender] = 300;
 
 
 function W_EndAttack(uint256 attacker, uint256 target) public {
-require(msg.sender == input, "input");
+require(msg.sender == input, "i");
 
 for(uint c=2; c<6; c++){
             if ( RealmAttacksive[attacker][target].leftFrontTip == c) {
