@@ -7,37 +7,6 @@ function W_AddAttack(uint256 attacker, uint256 target, uint256 askerTop) externa
 
 contract WarsX {
 
-struct Defensive{
-        uint256 leftFrontTip;
-        uint256 leftFrontAdet;
-        uint256 centerFrontTip;
-        uint256 centerFrontAdet;
-        uint256 rightFrontTip;
-        uint256 rightFrontAdet;
-        uint256 leftBackTip;
-        uint256 leftBackAdet;
-        uint256 centerBackTip;
-        uint256 centerBackAdet;
-        uint256 rightBackTip;
-        uint256 rightBackAdet;
-    }
-
-
-struct Attacksive{
-        uint256 leftFrontTip;
-        uint256 leftFrontAdet;
-        uint256 centerFrontTip;
-        uint256 centerFrontAdet;
-        uint256 rightFrontTip;
-        uint256 rightFrontAdet;
-        uint256 leftBackTip;
-        uint256 leftBackAdet;
-        uint256 centerBackTip;
-        uint256 centerBackAdet;
-        uint256 rightBackTip;
-        uint256 rightBackAdet;
-    }
-
 struct RealmsWarRecords{
         uint256 Attacker;
         uint256 Defender;
@@ -57,10 +26,8 @@ struct RealmsWarRecords{
 
 mapping(address => uint256) public RealmCreated;
 mapping(uint256 => mapping (uint256 => uint256)) public Realm_Soldiers; // 2-Wooden Club, 3-Wooden Axe ...
-mapping(uint256 => Defensive) public RealmDefensive;
 mapping(uint256 => mapping (uint256 => uint256)) public RealmDefensiveTips; // area --> tip
 mapping(uint256 => mapping (uint256 => uint256)) public RealmDefensiveAdets; // area --> Adet
-mapping(uint256 => mapping (uint256 => Attacksive)) public RealmAttacksive; // target
 mapping(uint256 => mapping(uint256 => mapping(uint256 => uint256))) public RealmAttacksiveTips; // target, area -> tip
 mapping(uint256 => mapping(uint256 => mapping(uint256 => uint256))) public RealmAttacksiveAdets; // target, area -> adet
 mapping(uint256 => mapping (uint256 => uint256)) public RealmAttacking; // target , 1=on 0=off
@@ -168,10 +135,6 @@ function setDefense(uint[] memory _inputTips, uint[] memory _inputAdets) public 
                 require(toplamTemp[c] <= Realm_Soldiers[realmnum][c], "a");
         } 
 
-RealmDefensive[realmnum] = Defensive(
-    _inputTips[0],_inputAdets[0],_inputTips[1],_inputAdets[1],_inputTips[2],_inputAdets[2],
-    _inputTips[3],_inputAdets[3],_inputTips[4],_inputAdets[4],_inputTips[5],_inputAdets[5]
-                                    );
 
 for(uint c=0; c<6; c++){
     RealmDefensiveTips[realmnum][c] = _inputTips[c];
@@ -209,7 +172,6 @@ function setAttack(uint[] memory _inputTips, uint[] memory _inputAdets, uint256 
         } 
 
 
-RealmDefensive[realmnum] = Defensive(0,0,0,0,0,0,0,0,0,0,0,0);
 for(uint c=0; c<6; c++){
     RealmDefensiveTips[realmnum][c] = 0;
     RealmDefensiveAdets[realmnum][c] = 0;
@@ -222,10 +184,7 @@ for(uint c=2; c<6; c++){
 uint256 toplamAsker = _inputAdets[0] + _inputAdets[1] + _inputAdets[2] + _inputAdets[3] + _inputAdets[4] + _inputAdets[5];
 
 RealmAttacking[realmnum][to_] = 1;
-RealmAttacksive[realmnum][to_] = Attacksive(
-    _inputTips[0],_inputAdets[0],_inputTips[1],_inputAdets[1],_inputTips[2],_inputAdets[2],
-    _inputTips[3],_inputAdets[3],_inputTips[4],_inputAdets[4],_inputTips[5],_inputAdets[5]
-                                    );
+
 
 for(uint c=0; c<6; c++){
     RealmAttacksiveTips[realmnum][to_][c] = _inputTips[c];
@@ -346,7 +305,7 @@ for(uint c=0; c<3; c++){
 if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
 
     WarRecords[WarCount].defansFaz2 += RealmDefensiveAdets[defender][c];
-    
+    WarRecords[WarCount].atakFaz2 += RealmAttacksiveAdets[attacker][defender][c];
 
     if ( HpAtakAreaTemp[c] > ( AP_Global[RealmDefensiveTips[defender][c]][RealmAttacksiveTips[attacker][defender][c]] ) * RealmDefensiveAdets[defender][c] ) {
         HpAtakAreaTemp[c] -= ( AP_Global[RealmDefensiveTips[defender][c]][RealmAttacksiveTips[attacker][defender][c]] ) * RealmDefensiveAdets[defender][c];
@@ -364,7 +323,7 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
         }
     }
 
-    WarRecords[WarCount].atakFaz2 += RealmDefensiveAdets[defender][c];
+    
  
 
     if ( HpDefansAreaTemp[c] > AP_Global[RealmAttacksiveTips[attacker][defender][c]][RealmDefensiveTips[defender][c]] * RealmAttacksiveAdets[attacker][defender][c] ) {
@@ -387,7 +346,7 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
 
     if ( RealmDefensiveTips[defender][c+3] == 5 ) {
 
-        WarRecords[WarCount].defansFaz2Okcu += RealmDefensiveAdets[defender][c];
+        WarRecords[WarCount].defansFaz2Okcu += RealmDefensiveAdets[defender][c+3];
     
 
         if ( HpAtakAreaTemp[c] > ( (AP_Global[5][RealmAttacksiveTips[attacker][defender][c]] +1) * RealmDefensiveAdets[defender][c+3] ) / 2 ) {
@@ -414,7 +373,7 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
 
     if ( RealmAttacksiveTips[attacker][defender][c+3] == 5 ) {
 
-        WarRecords[WarCount].atakFaz2Okcu += RealmDefensiveAdets[defender][c];
+        WarRecords[WarCount].atakFaz2Okcu += RealmDefensiveAdets[defender][c+3];
      
 
         if ( HpDefansAreaTemp[c] > ( AP_Global[5][RealmDefensiveTips[defender][c]] * RealmAttacksiveAdets[attacker][defender][c+3] ) / 2 ) {
@@ -441,7 +400,7 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
 
     if ( RealmDefensiveTips[defender][c+3] == 5 ) {
 
-        WarRecords[WarCount].defansFaz2Alt1Okcu += RealmDefensiveAdets[defender][c];
+        WarRecords[WarCount].defansFaz2Alt1Okcu += RealmDefensiveAdets[defender][c+3];
      
 
         if ( HpAtakAreaTemp[c] > (AP_Global[5][RealmAttacksiveTips[attacker][defender][c]] +1) * RealmDefensiveAdets[defender][c+3] ) {
@@ -468,7 +427,7 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
 
     if ( RealmAttacksiveTips[attacker][defender][c+3] == 5 ) {
 
-        WarRecords[WarCount].atakFaz2Alt1Okcu += RealmDefensiveAdets[defender][c];
+        WarRecords[WarCount].atakFaz2Alt1Okcu += RealmAttacksiveAdets[attacker][defender][c+3];
      
 
 
@@ -510,11 +469,14 @@ if ( AktifDefansArea[c] == 1 && AktifAtakArea[c] == 1) {
 // Phase 3
 
 for(uint c=0; c<3; c++){
+    
+    WarRecords[WarCount].defansFaz3 += RealmDefensiveAdets[defender][c] + RealmDefensiveAdets[defender][c+3];
+    WarRecords[WarCount].atakFaz3 += RealmAttacksiveAdets[attacker][defender][c] + RealmAttacksiveAdets[attacker][defender][c+3];
+
 if ( AktifDefansArea[c] == 1 ) {
     if ( AktifAtakArea[c] == 1 ) {
 
-        WarRecords[WarCount].defansFaz3 += RealmDefensiveAdets[defender][c] + RealmDefensiveAdets[defender][c+3];
-        WarRecords[WarCount].atakFaz3 += RealmDefensiveAdets[defender][c] + RealmDefensiveAdets[defender][c+3];
+        
     
 
         if ( HpAtakAreaTemp[c] > ( AP_Global[RealmDefensiveTips[defender][c]][RealmAttacksiveTips[attacker][defender][c]] ) * RealmDefensiveAdets[defender][c] ) {
@@ -689,24 +651,6 @@ for(uint c=0; c<6; c++){
     atakFinishadets[WarCount][c] = RealmAttacksiveAdets[attacker][defender][c];
 }
 
-RealmAttacksive[attacker][defender] = Attacksive(
-    RealmAttacksiveTips[attacker][defender][0],RealmAttacksiveAdets[attacker][defender][0],
-    RealmAttacksiveTips[attacker][defender][1],RealmAttacksiveAdets[attacker][defender][1],
-    RealmAttacksiveTips[attacker][defender][2],RealmAttacksiveAdets[attacker][defender][2],
-    RealmAttacksiveTips[attacker][defender][3],RealmAttacksiveAdets[attacker][defender][3],
-    RealmAttacksiveTips[attacker][defender][4],RealmAttacksiveAdets[attacker][defender][4],
-    RealmAttacksiveTips[attacker][defender][5],RealmAttacksiveAdets[attacker][defender][5]
-                                    );
-
-RealmDefensive[defender] = Defensive(
-    RealmDefensiveTips[defender][0],RealmDefensiveAdets[defender][0],
-    RealmDefensiveTips[defender][1],RealmDefensiveAdets[defender][1],
-    RealmDefensiveTips[defender][2],RealmDefensiveAdets[defender][2],
-    RealmDefensiveTips[defender][3],RealmDefensiveAdets[defender][3],
-    RealmDefensiveTips[defender][4],RealmDefensiveAdets[defender][4],
-    RealmDefensiveTips[defender][5],RealmDefensiveAdets[defender][5]
-                                    );
-
     WarRecords[WarCount].Attacker = attacker;
     WarRecords[WarCount].Defender = defender;
     WarRecords[WarCount].Date = block.timestamp;
@@ -721,23 +665,23 @@ function W_EndAttack(uint256 attacker, uint256 target) public {
 require(msg.sender == input, "i");
 
 for(uint c=2; c<6; c++){
-            if ( RealmAttacksive[attacker][target].leftFrontTip == c) {
-                Realm_Soldiers[attacker][c] += RealmAttacksive[attacker][target].leftFrontAdet;
-            } else if ( RealmAttacksive[attacker][target].centerFrontTip == c) {
-                Realm_Soldiers[attacker][c] += RealmAttacksive[attacker][target].centerFrontAdet;
-            } else if ( RealmAttacksive[attacker][target].rightFrontTip == c) {
-                Realm_Soldiers[attacker][c] += RealmAttacksive[attacker][target].rightFrontAdet;
-            } else if ( RealmAttacksive[attacker][target].leftBackTip == c) {
-                Realm_Soldiers[attacker][c] += RealmAttacksive[attacker][target].leftBackAdet;
-            } else if ( RealmAttacksive[attacker][target].centerBackTip == c) {
-                Realm_Soldiers[attacker][c] += RealmAttacksive[attacker][target].centerBackAdet;
-            } else if ( RealmAttacksive[attacker][target].rightBackTip == c) {
-                Realm_Soldiers[attacker][c] += RealmAttacksive[attacker][target].rightBackAdet;
+            if ( RealmAttacksiveTips[attacker][target][0] == c) {
+                Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][0];
+            } else if ( RealmAttacksiveTips[attacker][target][1] == c) {
+                Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][1];
+            } else if ( RealmAttacksiveTips[attacker][target][2] == c) {
+                Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][2];
+            } else if ( RealmAttacksiveTips[attacker][target][3] == c) {
+                Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][3];
+            } else if ( RealmAttacksiveTips[attacker][target][4] == c) {
+                Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][4];
+            } else if ( RealmAttacksiveTips[attacker][target][5] == c) {
+                Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][5];
             }
         } 
 
 RealmAttacking[attacker][target] = 0;
-RealmAttacksive[attacker][target] = Attacksive(0,0,0,0,0,0,0,0,0,0,0,0);
+
 
 for(uint c=0; c<6; c++){
     RealmAttacksiveTips[attacker][target][c] = 0;

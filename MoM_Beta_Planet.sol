@@ -71,7 +71,13 @@ uint256 public RealmCount;
     mapping (uint256 => int256) public Realm_Reputation; 
     // reputasyon sayacı -+ 2000 levels outcast despicable scoundrel unsavory rude neut fair kind good honest trustworthy
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_Diplomacy; 
-    // ilişki kaydı - neut0 ally1 enemy2
+    // ilişki kaydı - neut0 ally1 enemy2 AllyRequest
+    mapping (uint256 => uint256) public Realm_AllyRequests; // AllyRequest alan taraf
+
+    mapping (uint256 => mapping (uint256 => uint256)) public Realm_WarDeclaration; // Savaş ilanı süreci, açan ülke, alan ülke, kalan tur
+    mapping (uint256 => uint256) public Realm_WarDeclarationCount; // Savaş ilanı alan taraf sayacı, alan üle adet
+    mapping (uint256 => mapping (uint256 => uint256)) public Realm_WarDeclarationReceived; // Savaş ilanı alan taraf bilgisi, alan ülke, sayaç, açan ülke
+
     mapping (uint256 => uint256) public Realm_Clan; // Clan kaydı
     mapping (uint256 => string) public Clans; // Clanlar kaydı
     mapping (uint256 => uint256) public Realm_Points; // puan kaydı
@@ -142,6 +148,7 @@ struct useTurnG{
         uint256 newtrainingQuantity;
         uint256 cancelTraining;
         uint256 pauseTrainings;
+        uint256 AllyRequest;
     }
 
 function useTurn(useTurnG memory useTurnGx) public {
@@ -169,6 +176,21 @@ if ( block.timestamp > finishWorld ) {
         Realm_ResX[realmnum].food += (Realm_ResX[realmnum].foodWorker * Realm_ResX[realmnum].foodFactor * useTurnGx.turnA);
         Realm_ResX[realmnum].wood += (Realm_ResX[realmnum].woodWorker * Realm_ResX[realmnum].woodFactor * useTurnGx.turnA);
 
+
+if ( useTurnGx.AllyRequest == 999999999 ) {
+        Realm_Diplomacy[Realm_AllyRequests[realmnum]][realmnum] = Realm_Diplomacy[realmnum][Realm_AllyRequests[realmnum]];
+        Realm_AllyRequests[realmnum] = 0;
+} else if ( useTurnGx.AllyRequest != 0 ) {
+        if ( Realm_AllyRequests[realmnum] == useTurnGx.AllyRequest ) {
+            Realm_Diplomacy[realmnum][useTurnGx.AllyRequest] = 1;
+            Realm_Diplomacy[useTurnGx.AllyRequest][realmnum] = 1;
+            Realm_AllyRequests[realmnum] = 0;
+        } else {
+            require(Realm_AllyRequests[useTurnGx.AllyRequest] == 0, "Bus");
+            Realm_Diplomacy[realmnum][useTurnGx.AllyRequest] = 3;
+            Realm_AllyRequests[useTurnGx.AllyRequest] = realmnum;
+        }
+}
 
         
 
