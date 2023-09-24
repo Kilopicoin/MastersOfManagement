@@ -51,6 +51,11 @@ struct Attacks{
     uint256 half;
 }
 
+struct Realm_WarDeclarationX{
+    uint256 target;
+    uint256 turn;
+}
+
 address public owner;
 address public input;
 address public A_Feedback;
@@ -74,9 +79,11 @@ uint256 public RealmCount;
     // ilişki kaydı - neut0 ally1 enemy2 AllyRequest
     mapping (uint256 => uint256) public Realm_AllyRequests; // AllyRequest alan taraf
 
-    mapping (uint256 => mapping (uint256 => uint256)) public Realm_WarDeclaration; // Savaş ilanı süreci, açan ülke, alan ülke, kalan tur
-    mapping (uint256 => uint256) public Realm_WarDeclarationCount; // Savaş ilanı alan taraf sayacı, alan üle adet
+    mapping (uint256 => mapping (uint256 => Realm_WarDeclarationX)) public Realm_WarDeclaration; // Savaş ilanı süreci, açan ülke, sayaç, struct
+    mapping (uint256 => uint256) public Realm_WarDeclarationCountX; // Savaş ilanı açan taraf sayacı, açan üle adet
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_WarDeclarationReceived; // Savaş ilanı alan taraf bilgisi, alan ülke, sayaç, açan ülke
+    mapping (uint256 => uint256) public Realm_WarDeclarationCount; // Savaş ilanı alan taraf sayacı, alan üle adet
+
 
     mapping (uint256 => uint256) public Realm_Clan; // Clan kaydı
     mapping (uint256 => string) public Clans; // Clanlar kaydı
@@ -149,6 +156,7 @@ struct useTurnG{
         uint256 cancelTraining;
         uint256 pauseTrainings;
         uint256 AllyRequest;
+        uint256 WarDeclare;
     }
 
 function useTurn(useTurnG memory useTurnGx) public {
@@ -192,7 +200,50 @@ if ( useTurnGx.AllyRequest == 999999999 ) {
         }
 }
 
-        
+
+
+if ( useTurnGx.WarDeclare != 0 ) {
+    Realm_WarDeclarationCountX[realmnum]++;
+    Realm_WarDeclaration[realmnum][Realm_WarDeclarationCountX[realmnum]].target = useTurnGx.WarDeclare;
+    if ( Realm_Reputation[useTurnGx.WarDeclare] < 1000 ) {
+        Realm_WarDeclaration[realmnum][Realm_WarDeclarationCountX[realmnum]].turn = 10;
+    } else {
+        Realm_WarDeclaration[realmnum][Realm_WarDeclarationCountX[realmnum]].turn = uint256(Realm_Reputation[useTurnGx.WarDeclare]) / 10;
+        if ( Realm_Diplomacy[realmnum][useTurnGx.WarDeclare] == 1 ) {
+            Realm_WarDeclaration[realmnum][Realm_WarDeclarationCountX[realmnum]].turn += 100;
+        }
+    }
+    Realm_WarDeclarationCount[useTurnGx.WarDeclare]++;
+    Realm_WarDeclarationReceived[useTurnGx.WarDeclare][Realm_WarDeclarationCount[useTurnGx.WarDeclare]] = realmnum;
+    Realm_Diplomacy[useTurnGx.WarDeclare][realmnum] = 2;
+}
+
+
+if ( Realm_WarDeclarationCountX[realmnum] != 0 ) {
+    for(uint c=1; c<=Realm_WarDeclarationCountX[realmnum]; c++){
+        if ( Realm_WarDeclaration[realmnum][c].turn > useTurnGx.turnA ) {
+            Realm_WarDeclaration[realmnum][c].turn -= useTurnGx.turnA;
+        } else {
+            Realm_Diplomacy[realmnum][Realm_WarDeclaration[realmnum][c].target] = 2;
+            Realm_WarDeclaration[realmnum][c].turn = 0;
+            Realm_WarDeclaration[realmnum][c].target = 0;
+            Realm_WarDeclarationCountX[realmnum]--;
+        }
+    }
+}
+    
+if ( Realm_WarDeclarationCount[realmnum] != 0 ) {
+    for(uint c=1; c<=Realm_WarDeclarationCount[realmnum]; c++){
+        Realm_WarDeclarationReceived[realmnum][c] = 0;
+    }
+    Realm_WarDeclarationCount[realmnum] = 0;
+}
+
+
+
+
+
+
 
         if (useTurnGx.poplinecancel == 1) {
             Realm_PopOrder[realmnum] = 0;
@@ -454,6 +505,11 @@ if ( Realm_AttacksCount[realmnum] != 0 ) {
             Realm_Attacks[realmnum][c].turn -= useTurnGx.turnA;
 
             if ( Realm_Attacks[realmnum][c].half > Realm_Attacks[realmnum][c].turn ) { 
+                if ( Realm_Diplomacy[realmnum][Realm_Attacks[realmnum][c].target] == 0 ) {
+                    Realm_Reputation[realmnum] -= 3000;
+                } else if ( Realm_Diplomacy[realmnum][Realm_Attacks[realmnum][c].target] == 1 ) {
+                    Realm_Reputation[realmnum] -= 6000;
+                }
 
                 A_Wars.W_Battle(realmnum, Realm_Attacks[realmnum][c].target);
                 Realm_Attacks[realmnum][c].half = 0;
@@ -466,6 +522,11 @@ if ( Realm_AttacksCount[realmnum] != 0 ) {
 
             if ( Realm_Attacks[realmnum][c].half != 0 ) {
 
+                if ( Realm_Diplomacy[realmnum][Realm_Attacks[realmnum][c].target] == 0 ) {
+                    Realm_Reputation[realmnum] -= 3000;
+                } else if ( Realm_Diplomacy[realmnum][Realm_Attacks[realmnum][c].target] == 1 ) {
+                    Realm_Reputation[realmnum] -= 6000;
+                }
                 A_Wars.W_Battle(realmnum, Realm_Attacks[realmnum][c].target);
                  Realm_Attacks[realmnum][c].half = 0;
             }
