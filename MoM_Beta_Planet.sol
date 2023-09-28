@@ -10,6 +10,14 @@ function W_EndAttack(uint256 attacker, uint256 target) external;
 function W_ReleaseAttack (uint256 no, uint256 turnUsed) external;
 }
 
+interface Clans {
+function C_AddRealm (address adres, uint256 no) external;
+function C_Clanhall (uint256 no) external;
+function C_turnUsage (uint256 no, uint256 turn, uint256 mesajTo, string memory mesaj) external;
+function C_inviteClan (uint256 eden, uint256 alan) external;
+function C_quitFromClan (uint256 no, uint256 code) external;
+}
+
 
 contract Planet {
 
@@ -61,6 +69,7 @@ address public input;
 address public A_Feedback;
 
 Wars public A_Wars;
+Clans public A_Clans;
 
 bool public statusWorld;
 
@@ -84,9 +93,6 @@ uint256 public RealmCount;
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_WarDeclarationReceived; // Savaş ilanı alan taraf bilgisi, alan ülke, sayaç, açan ülke
     mapping (uint256 => uint256) public Realm_WarDeclarationCount; // Savaş ilanı alan taraf sayacı, alan üle adet
 
-
-    mapping (uint256 => uint256) public Realm_Clan; // Clan kaydı
-    mapping (uint256 => string) public Clans; // Clanlar kaydı
     mapping (uint256 => uint256) public Realm_Points; // puan kaydı
     mapping (uint256 => uint256) public Realm_PopOrder; // ülke-kalan tur
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_Buildings; // tip ve adet sayacı
@@ -120,8 +126,8 @@ uint256 public RealmCount;
 
     mapping (int256 => mapping (int256 => bool)) public Occupied; // x - y - dolu - boş
 
-constructor (Wars warsAdres, address feedbackAdres, uint256 lifeWorld)  {
-
+constructor (Clans clansAdres, Wars warsAdres, address feedbackAdres, uint256 lifeWorld)  {
+    A_Clans = clansAdres;
     owner = msg.sender;
     statusWorld = false;
     A_Feedback = feedbackAdres;
@@ -157,6 +163,10 @@ struct useTurnG{
         uint256 pauseTrainings;
         uint256 AllyRequest;
         uint256 WarDeclare;
+        uint256 inviteClan;
+        uint256 quitClan;
+        uint256 messageTo;
+        string message;
     }
 
 function useTurn(useTurnG memory useTurnGx) public {
@@ -173,11 +183,21 @@ if ( block.timestamp > finishWorld ) {
 		require(Realm_Turns[realmnum].turn >= useTurnGx.turnA, "Tur");
         require(Realm_ResX[realmnum].popu >= useTurnGx.foodworker + useTurnGx.woodworker, "Pop");
 
+        A_Clans.C_turnUsage(realmnum, useTurnGx.turnA, useTurnGx.messageTo, useTurnGx.message);
+
+        if ( useTurnGx.inviteClan != 0 ) {
+            A_Clans.C_inviteClan(realmnum, useTurnGx.inviteClan);
+        }
+
+        if ( useTurnGx.quitClan != 0 ) {
+            A_Clans.C_quitFromClan(realmnum, useTurnGx.quitClan);
+        }
+
         Realm_Turns[realmnum].turn -= useTurnGx.turnA;
         Realm_Turns[realmnum].start = block.timestamp;
 
         Realm_Reputation[realmnum] += int256(useTurnGx.turnA) ;
-        Realm_Points[realmnum] += useTurnGx.turnA ;
+        Realm_Points[realmnum] += useTurnGx.turnA * 10 ;
 
         Realm_ResX[realmnum].foodWorker = useTurnGx.foodworker;
         Realm_ResX[realmnum].woodWorker = useTurnGx.woodworker;
@@ -221,13 +241,14 @@ if ( useTurnGx.WarDeclare != 0 ) {
 
 if ( Realm_WarDeclarationCountX[realmnum] != 0 ) {
     for(uint c=1; c<=Realm_WarDeclarationCountX[realmnum]; c++){
-        if ( Realm_WarDeclaration[realmnum][c].turn > useTurnGx.turnA ) {
-            Realm_WarDeclaration[realmnum][c].turn -= useTurnGx.turnA;
-        } else {
-            Realm_Diplomacy[realmnum][Realm_WarDeclaration[realmnum][c].target] = 2;
-            Realm_WarDeclaration[realmnum][c].turn = 0;
-            Realm_WarDeclaration[realmnum][c].target = 0;
-            Realm_WarDeclarationCountX[realmnum]--;
+        if ( Realm_WarDeclaration[realmnum][c].turn != 0 ) {
+            if ( Realm_WarDeclaration[realmnum][c].turn > useTurnGx.turnA ) {
+                Realm_WarDeclaration[realmnum][c].turn -= useTurnGx.turnA;
+            } else {
+                Realm_Diplomacy[realmnum][Realm_WarDeclaration[realmnum][c].target] = 2;
+                Realm_WarDeclaration[realmnum][c].turn = 0;
+                Realm_WarDeclaration[realmnum][c].target = 0;
+            }
         }
     }
 }
@@ -354,9 +375,12 @@ for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
             } else if (Realm_BuildingzX[realmnum][c].typeB == 3) {
                 Realm_ResX[realmnum].foodFactor += 1;
                 Realm_ResX[realmnum].woodFactor += 1;
+            } else if ( Realm_BuildingzX[realmnum][c].typeB == 7 ) {
+                A_Clans.C_Clanhall(realmnum);
             }
         }
     }
+
 
 
     if ( Realm_BuildingzX[realmnum][c].research != 0 ) {
@@ -595,7 +619,7 @@ function addRealm(int256 pX, int256 pY, string memory name) public {
 
 
         A_Wars.W_AddRealm(msg.sender, RealmCount);
-
+        A_Clans.C_AddRealm(msg.sender, RealmCount);
 
 	}
 
