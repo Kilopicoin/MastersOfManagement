@@ -8,6 +8,8 @@ function W_RemoveSoldier(uint256 no, uint256 asker, uint256 adet) external;
 function W_Battle(uint256 attacker, uint256 defender) external;
 function W_EndAttack(uint256 attacker, uint256 target) external;
 function W_ReleaseAttack (uint256 no, uint256 turnUsed) external;
+function W_addHpBonus (uint256 no) external;
+function W_AskerCount(uint256 attacker, uint256 defender) external view returns (uint256, uint256);
 }
 
 interface Clans {
@@ -29,6 +31,8 @@ struct Realm_Pos{
 
 struct Realm_Res{
     uint256 popu;
+    uint256 armySize;
+    uint256 popuSize;
     uint256 popuLimit;
     uint256 food;
     uint256 foodFactor;
@@ -62,6 +66,12 @@ struct Attacks{
 struct Realm_WarDeclarationX{
     uint256 target;
     uint256 turn;
+}
+
+struct Realm_IncomingAttackX{
+    uint256 aktif; // 1 aktif , 0 pasif
+    uint256 saldiran;
+    uint256 toplamAsker;
 }
 
 address public owner;
@@ -106,6 +116,8 @@ uint256 public RealmCount;
     
     mapping (uint256 => mapping (uint256 => Attacks)) public Realm_Attacks; // saldırı adedi
     mapping (uint256 => uint256) public Realm_AttacksCount; // numara sayacı
+
+    mapping (uint256 => Realm_IncomingAttackX) public Realm_IncomingAttack; // gelen saldırı haberi
 
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_Techs; // no'lar tipi, 1-0 on-off
 
@@ -267,15 +279,19 @@ if ( Realm_WarDeclarationCount[realmnum] != 0 ) {
 
 
         if (useTurnGx.poplinecancel == 1) {
+            Realm_ResX[realmnum].popuSize -= ( Realm_PopOrder[realmnum] / 60 ) + 1;
             Realm_PopOrder[realmnum] = 0;
         }
         if (useTurnGx.poporder != 0) {
             if (Realm_PopOrder[realmnum] == 0 ) {
+                require( useTurnGx.poporder + Realm_ResX[realmnum].armySize + Realm_ResX[realmnum].popuSize <= Realm_ResX[realmnum].popuLimit, "Lim");
+                Realm_ResX[realmnum].popuSize += useTurnGx.poporder;
                 Realm_PopOrder[realmnum] = useTurnGx.poporder * 60;
             }
         }
 
 if ( useTurnGx.cancelTraining != 0 ){
+Realm_ResX[realmnum].armySize -= ( Realm_BuildingzX[realmnum][useTurnGx.cancelTraining].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][useTurnGx.cancelTraining].research]) + 1;
     Realm_BuildingzX[realmnum][useTurnGx.cancelTraining].research = 0;
     Realm_BuildingzX[realmnum][useTurnGx.cancelTraining].researchProgress = 0;
 }
@@ -291,6 +307,8 @@ if ( useTurnGx.newtraining > 1 ) {
 
     if ( useTurnGx.newtraining < 6  ) {
         require(Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].typeB == 6, "Pit");
+        require( useTurnGx.newtrainingQuantity + Realm_ResX[realmnum].armySize + Realm_ResX[realmnum].popuSize <= Realm_ResX[realmnum].popuLimit, "Lim");
+        Realm_ResX[realmnum].armySize += useTurnGx.newtrainingQuantity;
         Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].research = useTurnGx.newtraining;
         Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].just = 1;
         Realm_BuildingzX[realmnum][useTurnGx.newtrainingBuildingID].researchProgress = useTurnGx.newtrainingQuantity * Trainings_Global[useTurnGx.newtraining];
@@ -377,6 +395,8 @@ for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
                 Realm_ResX[realmnum].woodFactor += 1;
             } else if ( Realm_BuildingzX[realmnum][c].typeB == 7 ) {
                 A_Clans.C_Clanhall(realmnum);
+            } else if ( Realm_BuildingzX[realmnum][c].typeB == 8 ) {
+                Realm_Buildings[realmnum][8] += 1;
             }
         }
     }
@@ -401,9 +421,9 @@ for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
                 } else if (Realm_BuildingzX[realmnum][c].research == 4) {
                     Realm_ResX[realmnum].popuLimit += 6;
                 } else if (Realm_BuildingzX[realmnum][c].research == 5) {
-                    // Handle case 5 if needed
+                    A_Wars.W_addHpBonus(realmnum);
                 } else if (Realm_BuildingzX[realmnum][c].research == 6) {
-                    // Handle case 6 if needed
+                    A_Wars.W_addHpBonus(realmnum);
                 }
 
                 Realm_BuildingzX[realmnum][c].researchProgress = 0;
@@ -535,7 +555,15 @@ if ( Realm_AttacksCount[realmnum] != 0 ) {
                     Realm_Reputation[realmnum] -= 6000;
                 }
 
+                (uint256 value1, uint256 value2) = A_Wars.W_AskerCount(realmnum, Realm_Attacks[realmnum][c].target);
+
                 A_Wars.W_Battle(realmnum, Realm_Attacks[realmnum][c].target);
+
+                (uint256 value3, uint256 value4) = A_Wars.W_AskerCount(realmnum, Realm_Attacks[realmnum][c].target);
+                Realm_ResX[realmnum].armySize -= ( value1 - value3 );
+                Realm_ResX[Realm_Attacks[realmnum][c].target].armySize -= ( value2 - value4 );
+
+                Realm_IncomingAttack[Realm_Attacks[realmnum][c].target].aktif = 0;
                 Realm_Attacks[realmnum][c].half = 0;
             }
 
@@ -551,7 +579,16 @@ if ( Realm_AttacksCount[realmnum] != 0 ) {
                 } else if ( Realm_Diplomacy[realmnum][Realm_Attacks[realmnum][c].target] == 1 ) {
                     Realm_Reputation[realmnum] -= 6000;
                 }
+
+                (uint256 value1, uint256 value2) = A_Wars.W_AskerCount(realmnum, Realm_Attacks[realmnum][c].target);
+
                 A_Wars.W_Battle(realmnum, Realm_Attacks[realmnum][c].target);
+
+                (uint256 value3, uint256 value4) = A_Wars.W_AskerCount(realmnum, Realm_Attacks[realmnum][c].target);
+                Realm_ResX[realmnum].armySize -= ( value1 - value3 );
+                Realm_ResX[Realm_Attacks[realmnum][c].target].armySize -= ( value2 - value4 );
+
+                Realm_IncomingAttack[Realm_Attacks[realmnum][c].target].aktif = 0;
                  Realm_Attacks[realmnum][c].half = 0;
             }
 
@@ -606,7 +643,7 @@ function addRealm(int256 pX, int256 pY, string memory name) public {
         
         Realm_Name[RealmCount] = name;
 		Realm_PosX[RealmCount] = Realm_Pos(msg.sender,pX,pY);
-        Realm_ResX[RealmCount] = Realm_Res(2,10,100,1,1,100,1,1);
+        Realm_ResX[RealmCount] = Realm_Res(2,0,2,10,100,1,1,100,1,1);
 
         Occupied[pX][pY] = true;
 
@@ -664,6 +701,13 @@ function W_AddAttack (uint256 attacker, uint256 target, uint256 askerTop) public
     Realm_ResX[attacker].food -= foodCost;
 
     Realm_Attacks[attacker][Realm_AttacksCount[attacker]] = Attacks(target,tur,tur/2);
+
+    if ( Realm_Buildings[target][8] != 0 ) {
+        Realm_IncomingAttack[target].aktif = 1;
+        Realm_IncomingAttack[target].saldiran = attacker;
+        Realm_IncomingAttack[target].toplamAsker = askerTop;
+    }
+
 }
 
 }

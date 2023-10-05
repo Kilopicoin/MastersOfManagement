@@ -49,6 +49,8 @@ uint256 public WarCount;
 mapping(uint256 => mapping (uint256 => uint256)) public AP_Global; // asker tipi-asker tipi-AP, // damage + possibility
 uint[] public HP_Global = [0,0,4,5,5,4]; // WC_Fighter,WA,WS,WB // hp + armor
 
+mapping(uint256 => uint256) public RealmHpBonus; // Ülke, bonus
+
 address public input;
 address public owner;
 Planet public A_Planet;
@@ -98,6 +100,11 @@ function W_AddSoldier (uint256 no, uint256 asker, uint256 adet) public {
 function W_RemoveSoldier (uint256 no, uint256 asker, uint256 adet) public {
     require(msg.sender == input, "i");
     Realm_Soldiers[no][asker] -= adet;
+}
+
+function W_addHpBonus (uint256 no) public {
+    require(msg.sender == input, "i");
+    RealmHpBonus[no] += 1;
 }
 
 function W_ReleaseAttack (uint256 no, uint256 turnUsed) public {
@@ -197,6 +204,19 @@ RealmReceivedAttack[to_] = realmnum;
 }
 
 
+function W_AskerCount(uint256 attacker, uint256 defender) public view returns (uint256, uint256) {
+require(msg.sender == input, "i");
+uint256 attackerAskerCount;
+uint256 defenderAskerCount;
+
+for(uint c=0; c<6; c++){
+    attackerAskerCount += RealmAttacksiveAdets[attacker][defender][c];
+    defenderAskerCount += RealmDefensiveAdets[defender][c];
+}
+
+return (attackerAskerCount, defenderAskerCount);
+
+}
 
 
 function W_Battle(uint256 attacker, uint256 defender) public {
@@ -213,11 +233,13 @@ uint[] memory HpAtakAreaTemp = new uint[](6);
 uint[] memory AktifDefansArea = new uint[](6); // 1 aktif , 0 pasif
 uint[] memory AktifAtakArea = new uint[](6); // 1 aktif , 0 pasif
 
+
+
 for(uint c=0; c<6; c++){
-    HpDefansArea[c] = HP_Global[RealmDefensiveTips[defender][c]] * RealmDefensiveAdets[defender][c];
-    HpAtakArea[c] = HP_Global[RealmAttacksiveTips[attacker][defender][c]] * RealmAttacksiveAdets[attacker][defender][c];
-    HpDefansAreaTemp[c] = HP_Global[RealmDefensiveTips[defender][c]] * RealmDefensiveAdets[defender][c];
-    HpAtakAreaTemp[c] = HP_Global[RealmAttacksiveTips[attacker][defender][c]] * RealmAttacksiveAdets[attacker][defender][c];
+    HpDefansArea[c] = ( HP_Global[RealmDefensiveTips[defender][c]] + RealmHpBonus[defender] ) * RealmDefensiveAdets[defender][c];
+    HpAtakArea[c] = ( HP_Global[RealmAttacksiveTips[attacker][defender][c]] + RealmHpBonus[attacker] ) * RealmAttacksiveAdets[attacker][defender][c];
+    HpDefansAreaTemp[c] = HpDefansArea[c];
+    HpAtakAreaTemp[c] = HpAtakArea[c];
 }
 
 for(uint c=0; c<6; c++){
