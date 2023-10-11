@@ -680,6 +680,7 @@ for(uint c=0; c<6; c++){
 
 
 RealmReceivedAttackTurn[defender] = 300;
+W_EndDefense(WarCount, defender);
 }
 
 
@@ -689,15 +690,20 @@ require(msg.sender == input, "i");
 for(uint c=2; c<6; c++){
             if ( RealmAttacksiveTips[attacker][target][0] == c) {
                 Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][0];
-            } else if ( RealmAttacksiveTips[attacker][target][1] == c) {
+            } 
+            if ( RealmAttacksiveTips[attacker][target][1] == c) {
                 Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][1];
-            } else if ( RealmAttacksiveTips[attacker][target][2] == c) {
+            } 
+            if ( RealmAttacksiveTips[attacker][target][2] == c) {
                 Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][2];
-            } else if ( RealmAttacksiveTips[attacker][target][3] == c) {
+            } 
+            if ( RealmAttacksiveTips[attacker][target][3] == c) {
                 Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][3];
-            } else if ( RealmAttacksiveTips[attacker][target][4] == c) {
+            } 
+            if ( RealmAttacksiveTips[attacker][target][4] == c) {
                 Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][4];
-            } else if ( RealmAttacksiveTips[attacker][target][5] == c) {
+            } 
+            if ( RealmAttacksiveTips[attacker][target][5] == c) {
                 Realm_Soldiers[attacker][c] += RealmAttacksiveAdets[attacker][target][5];
             }
         } 
@@ -711,6 +717,48 @@ for(uint c=0; c<6; c++){
 }
 
 }
+
+
+function W_EndDefense(uint256 warId, uint256 defender) private {
+
+uint[] memory toplamTempBas = new uint[](6);
+uint[] memory toplamTempBit = new uint[](6);
+
+        for(uint c=0; c<6; c++){
+            if ( defansStarttips[warId][c] == 2) {
+                toplamTempBas[2] += defansStartadets[warId][c];
+            } else if ( defansStarttips[warId][c] == 3) {
+                toplamTempBas[3] += defansStartadets[warId][c];
+            } else if ( defansStarttips[warId][c] == 4) {
+                toplamTempBas[4] += defansStartadets[warId][c];
+            } else if ( defansStarttips[warId][c] == 5) {
+                toplamTempBas[5] += defansStartadets[warId][c];
+            }
+        } 
+
+
+        for(uint c=0; c<6; c++){
+            if ( defansFinishtips[warId][c] == 2) {
+                toplamTempBit[2] += defansFinishadets[warId][c];
+            } else if ( defansFinishtips[warId][c] == 3) {
+                toplamTempBit[3] += defansFinishadets[warId][c];
+            } else if ( defansFinishtips[warId][c] == 4) {
+                toplamTempBit[4] += defansFinishadets[warId][c];
+            } else if ( defansFinishtips[warId][c] == 5) {
+                toplamTempBit[5] += defansFinishadets[warId][c];
+            }
+        } 
+
+    for(uint c=2; c<6; c++){
+        Realm_Soldiers[defender][c] -= ( toplamTempBas[c] - toplamTempBit[c] );
+    }
+
+
+
+}
+
+
+
 
 
 
