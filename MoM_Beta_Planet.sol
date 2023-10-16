@@ -61,6 +61,8 @@ struct Attacks{
     uint256 target;
     uint256 turn;
     uint256 half;
+    uint256 food;
+    uint256 wood;
 }
 
 struct Realm_WarDeclarationX{
@@ -73,6 +75,12 @@ struct Realm_IncomingAttackX{
     uint256 saldiran;
     uint256 toplamAsker;
 }
+
+struct RealmsWarRecords{
+        uint256 nufus;
+        uint256 yemek;
+        uint256 odun;
+    }
 
 address public owner;
 address public input;
@@ -87,6 +95,8 @@ uint256 public finishWorld;
 uint256 public RealmCount;
     
     mapping(address => uint256) public RealmCreated;
+
+    mapping (uint256 => RealmsWarRecords) public WarRecordsP; // adet
 
     mapping (uint256 => string) public Realm_Name;
     mapping (uint256 => Realm_Pos) public Realm_PosX;
@@ -571,6 +581,10 @@ if ( Realm_AttacksCount[realmnum] != 0 ) {
 
             Realm_Attacks[realmnum][c].turn = 0;
             A_Wars.W_EndAttack(realmnum, Realm_Attacks[realmnum][c].target);
+            Realm_ResX[realmnum].food +=  Realm_Attacks[realmnum][c].food;
+            Realm_ResX[realmnum].wood +=  Realm_Attacks[realmnum][c].wood;
+            Realm_Attacks[realmnum][c].food = 0;
+            Realm_Attacks[realmnum][c].wood = 0;
 
             if ( Realm_Attacks[realmnum][c].half != 0 ) {
 
@@ -700,7 +714,7 @@ function W_AddAttack (uint256 attacker, uint256 target, uint256 askerTop) public
 
     Realm_ResX[attacker].food -= foodCost;
 
-    Realm_Attacks[attacker][Realm_AttacksCount[attacker]] = Attacks(target,tur,tur/2);
+    Realm_Attacks[attacker][Realm_AttacksCount[attacker]] = Attacks(target,tur,tur/2,0,0);
 
     if ( Realm_Buildings[target][8] != 0 ) {
         Realm_IncomingAttack[target].aktif = 1;
@@ -709,5 +723,68 @@ function W_AddAttack (uint256 attacker, uint256 target, uint256 askerTop) public
     }
 
 }
+
+
+
+function W_WarDamage (uint256 savunan, uint256 sonuc, uint256 askerTop, uint256 warNo, uint256 saldiran) public {
+    require(msg.sender == input, "input");
+    uint256 factor = 1;
+    uint256 eksilenNufus;
+    uint256 eksilenYemek;
+    uint256 eksilenOdun;
+
+    if ( sonuc > 4 ) {
+        factor = 2;
+    }
+    
+    if ( sonuc > 2 ) {
+        eksilenNufus = ( askerTop * factor ) / 10;
+        eksilenYemek = askerTop * factor * 1000;
+        eksilenOdun = askerTop * factor * 1000;
+
+        if ( Realm_ResX[savunan].popu > (eksilenNufus + 2)) {
+            Realm_ResX[savunan].popu -= eksilenNufus;
+            Realm_ResX[savunan].popuSize -= eksilenNufus;
+        } else {
+           eksilenNufus = Realm_ResX[savunan].popu - 2;
+           Realm_ResX[savunan].popu = 2;
+           Realm_ResX[savunan].popuSize -= eksilenNufus;
+        }
+
+        if ( Realm_ResX[savunan].food > eksilenYemek ) {
+            Realm_ResX[savunan].food -= eksilenYemek;
+        } else {
+           eksilenYemek = Realm_ResX[savunan].food;
+           Realm_ResX[savunan].food = 0;
+        }
+
+        if ( Realm_ResX[savunan].wood > eksilenOdun ) {
+            Realm_ResX[savunan].wood -= eksilenOdun;
+        } else {
+            eksilenOdun = Realm_ResX[savunan].wood;
+            Realm_ResX[savunan].wood = 0;
+        }
+
+
+
+    }
+
+    WarRecordsP[warNo] = RealmsWarRecords(eksilenNufus,eksilenYemek,eksilenOdun);
+
+    for(uint c=1; c<=Realm_AttacksCount[saldiran]; c++){
+
+        if ( Realm_Attacks[saldiran][c].target == savunan ) {
+            Realm_Attacks[saldiran][c].food = eksilenYemek;
+            Realm_Attacks[saldiran][c].wood = eksilenOdun;
+        }
+
+    }
+    
+
+}
+
+
+
+
 
 }

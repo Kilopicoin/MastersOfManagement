@@ -3,6 +3,7 @@ pragma solidity 0.8.18;
 
 interface Planet {
 function W_AddAttack(uint256 attacker, uint256 target, uint256 askerTop) external;
+function W_WarDamage (uint256 savunan, uint256 sonuc, uint256 askerTop, uint256 warNo, uint256 saldiran) external;
 }
 
 contract WarsX {
@@ -665,12 +666,13 @@ for(uint c=0; c<6; c++){
     }
 }
 
-
+uint256 saldiranKalanToplam;
 for(uint c=0; c<6; c++){
     defansFinishtips[WarCount][c] = RealmDefensiveTips[defender][c];
     defansFinishadets[WarCount][c] = RealmDefensiveAdets[defender][c];
     atakFinishtips[WarCount][c] = RealmAttacksiveTips[attacker][defender][c];
     atakFinishadets[WarCount][c] = RealmAttacksiveAdets[attacker][defender][c];
+    saldiranKalanToplam += RealmAttacksiveAdets[attacker][defender][c];
 }
 
     WarRecords[WarCount].Attacker = attacker;
@@ -681,6 +683,8 @@ for(uint c=0; c<6; c++){
 
 RealmReceivedAttackTurn[defender] = 300;
 W_EndDefense(WarCount, defender);
+A_Planet.W_WarDamage(defender, rate, saldiranKalanToplam, WarCount, attacker);
+
 }
 
 
