@@ -20,6 +20,16 @@ function C_inviteClan (uint256 eden, uint256 alan) external;
 function C_quitFromClan (uint256 no, uint256 code) external;
 }
 
+interface Pool {
+function P_AddRealm (address adres, uint256 no) external;
+function P_AddBuilding (uint256 no, uint256 bina) external;
+function P_AddWeapon (uint256 no, uint256 weapon, uint256 quantity) external;
+function P_AddTech (uint256 no, uint256 tech) external;
+function P_AddSoldier (uint256 no, uint256 soldier, uint256 quantity) external;
+function P_AddRes (uint256 no, uint256 pop, uint256 food, uint256 wood) external;
+function calculatePoints (uint256 no) external;
+}
+
 
 contract Planet {
 
@@ -88,6 +98,7 @@ address public A_Feedback;
 
 Wars public A_Wars;
 Clans public A_Clans;
+Pool public A_Pool;
 
 bool public statusWorld;
 
@@ -113,7 +124,6 @@ uint256 public RealmCount;
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_WarDeclarationReceived; // Savaş ilanı alan taraf bilgisi, alan ülke, sayaç, açan ülke
     mapping (uint256 => uint256) public Realm_WarDeclarationCount; // Savaş ilanı alan taraf sayacı, alan üle adet
 
-    mapping (uint256 => uint256) public Realm_Points; // puan kaydı
     mapping (uint256 => uint256) public Realm_PopOrder; // ülke-kalan tur
     mapping (uint256 => mapping (uint256 => uint256)) public Realm_Buildings; // tip ve adet sayacı
     mapping (uint256 => mapping (uint256 => Realm_Buildingz)) public Realm_BuildingzX; // numara ve tip-koordinat
@@ -148,7 +158,8 @@ uint256 public RealmCount;
 
     mapping (int256 => mapping (int256 => bool)) public Occupied; // x - y - dolu - boş
 
-constructor (Clans clansAdres, Wars warsAdres, address feedbackAdres, uint256 lifeWorld)  {
+constructor (Pool poolAdres, Clans clansAdres, Wars warsAdres, address feedbackAdres, uint256 lifeWorld)  {
+    A_Pool = poolAdres;
     A_Clans = clansAdres;
     owner = msg.sender;
     statusWorld = false;
@@ -219,7 +230,6 @@ if ( block.timestamp > finishWorld ) {
         Realm_Turns[realmnum].start = block.timestamp;
 
         Realm_Reputation[realmnum] += int256(useTurnGx.turnA) ;
-        Realm_Points[realmnum] += useTurnGx.turnA * 10 ;
 
         Realm_ResX[realmnum].foodWorker = useTurnGx.foodworker;
         Realm_ResX[realmnum].woodWorker = useTurnGx.woodworker;
@@ -397,6 +407,8 @@ for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
             Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].construction * Constructions_Global_food[Realm_BuildingzX[realmnum][c].typeB]);
             Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].construction * Constructions_Global_wood[Realm_BuildingzX[realmnum][c].typeB]);
             Realm_BuildingzX[realmnum][c].construction = 0;
+            Realm_Buildings[realmnum][Realm_BuildingzX[realmnum][c].typeB] += 1;
+            A_Pool.P_AddBuilding(realmnum, Realm_BuildingzX[realmnum][c].typeB);
 
             if (Realm_BuildingzX[realmnum][c].typeB == 2) {
                 Realm_ResX[realmnum].popuLimit += 2;
@@ -405,8 +417,6 @@ for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
                 Realm_ResX[realmnum].woodFactor += 1;
             } else if ( Realm_BuildingzX[realmnum][c].typeB == 7 ) {
                 A_Clans.C_Clanhall(realmnum);
-            } else if ( Realm_BuildingzX[realmnum][c].typeB == 8 ) {
-                Realm_Buildings[realmnum][8] += 1;
             }
         }
     }
@@ -423,6 +433,7 @@ for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
             } else {
                 Realm_ResX[realmnum].food -= (Realm_BuildingzX[realmnum][c].researchProgress * Researches_Global_food[Realm_BuildingzX[realmnum][c].research]);
                 Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].researchProgress * Researches_Global_wood[Realm_BuildingzX[realmnum][c].research]);
+                A_Pool.P_AddTech(realmnum, Realm_BuildingzX[realmnum][c].research);
 
                 if (Realm_BuildingzX[realmnum][c].research == 2) {
                     Realm_ResX[realmnum].foodFactor += 2;
@@ -457,6 +468,7 @@ for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
                 uint256 yeni = Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research];
 
                 Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] += ( eski - yeni );
+                A_Pool.P_AddWeapon(realmnum, Realm_BuildingzX[realmnum][c].research, ( eski - yeni ));
                 if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
                     Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] -= 1;
                     Realm_BuildingzX[realmnum][c].just = 0;
@@ -467,6 +479,7 @@ for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
                 Realm_ResX[realmnum].wood -= (Realm_BuildingzX[realmnum][c].researchProgress * Productions_Global_wood[Realm_BuildingzX[realmnum][c].research]);
 
 Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] += (( Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research] ) + 1);
+A_Pool.P_AddWeapon(realmnum, Realm_BuildingzX[realmnum][c].research, (( Realm_BuildingzX[realmnum][c].researchProgress / Productions_Global[Realm_BuildingzX[realmnum][c].research] ) + 1)); 
                 if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
                     Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] -= 1;
                     Realm_BuildingzX[realmnum][c].just = 0;
@@ -492,6 +505,7 @@ Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] += (( Realm_Buil
                 uint256 yeni = Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research];
 
                 A_Wars.W_AddSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, (eski - yeni));
+                A_Pool.P_AddSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, (eski - yeni));
                 if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
                     A_Wars.W_RemoveSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, 1);
                     Realm_BuildingzX[realmnum][c].just = 0;
@@ -504,6 +518,7 @@ Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] += (( Realm_Buil
                 Realm_Weapons[realmnum][Realm_BuildingzX[realmnum][c].research] -= Realm_BuildingzX[realmnum][c].researchProgress;
 
 A_Wars.W_AddSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, (( Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research] ) + 1));
+A_Pool.P_AddSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, (( Realm_BuildingzX[realmnum][c].researchProgress / Trainings_Global[Realm_BuildingzX[realmnum][c].research] ) + 1));
 
                 if ( Realm_BuildingzX[realmnum][c].just == 1 ) {
                     A_Wars.W_RemoveSoldier(realmnum, Realm_BuildingzX[realmnum][c].research, 1);
@@ -568,6 +583,8 @@ if ( Realm_AttacksCount[realmnum] != 0 ) {
                 (uint256 value1, uint256 value2) = A_Wars.W_AskerCount(realmnum, Realm_Attacks[realmnum][c].target);
 
                 A_Wars.W_Battle(realmnum, Realm_Attacks[realmnum][c].target);
+A_Pool.P_AddRes(Realm_Attacks[realmnum][c].target, Realm_ResX[Realm_Attacks[realmnum][c].target].popu,  Realm_ResX[Realm_Attacks[realmnum][c].target].food,  Realm_ResX[Realm_Attacks[realmnum][c].target].wood);
+                A_Pool.calculatePoints(Realm_Attacks[realmnum][c].target);
 
                 (uint256 value3, uint256 value4) = A_Wars.W_AskerCount(realmnum, Realm_Attacks[realmnum][c].target);
                 Realm_ResX[realmnum].armySize -= ( value1 - value3 );
@@ -597,6 +614,8 @@ if ( Realm_AttacksCount[realmnum] != 0 ) {
                 (uint256 value1, uint256 value2) = A_Wars.W_AskerCount(realmnum, Realm_Attacks[realmnum][c].target);
 
                 A_Wars.W_Battle(realmnum, Realm_Attacks[realmnum][c].target);
+A_Pool.P_AddRes(Realm_Attacks[realmnum][c].target, Realm_ResX[Realm_Attacks[realmnum][c].target].popu,  Realm_ResX[Realm_Attacks[realmnum][c].target].food,  Realm_ResX[Realm_Attacks[realmnum][c].target].wood);
+                A_Pool.calculatePoints(Realm_Attacks[realmnum][c].target);
 
                 (uint256 value3, uint256 value4) = A_Wars.W_AskerCount(realmnum, Realm_Attacks[realmnum][c].target);
                 Realm_ResX[realmnum].armySize -= ( value1 - value3 );
@@ -620,7 +639,8 @@ if ( Realm_AttacksCount[realmnum] != 0 ) {
 
 
 
-
+A_Pool.P_AddRes(realmnum, Realm_ResX[realmnum].popu,  Realm_ResX[realmnum].food,  Realm_ResX[realmnum].wood);
+A_Pool.calculatePoints(realmnum);
 
 }
 }
@@ -671,6 +691,7 @@ function addRealm(int256 pX, int256 pY, string memory name) public {
 
         A_Wars.W_AddRealm(msg.sender, RealmCount);
         A_Clans.C_AddRealm(msg.sender, RealmCount);
+        A_Pool.P_AddRealm(msg.sender, RealmCount);
 
 	}
 
