@@ -28,6 +28,7 @@ function P_AddTech (uint256 no, uint256 tech) external;
 function P_AddSoldier (uint256 no, uint256 soldier, uint256 quantity) external;
 function P_AddRes (uint256 no, uint256 pop, uint256 food, uint256 wood) external;
 function calculatePoints (uint256 no) external;
+function P_market (uint256 no) external;
 }
 
 
@@ -94,6 +95,7 @@ struct RealmsWarRecords{
 
 address public owner;
 address public input;
+address public input2;
 address public A_Feedback;
 
 Wars public A_Wars;
@@ -144,17 +146,17 @@ uint256 public RealmCount;
     uint[] public Researches_Global = [0,0,600,600,300,900,1200]; // 0,0,comb,rope,design,boneArmor,training
     uint[] public Productions_Global = [0,0,2,3,4,3]; // WClub,WoodenAxe,WoodenSpear,WoodenBow
     uint[] public Trainings_Global = [0,0,40,50,60,60]; // WC_Fighter,WA,WS,WB
-    uint[] public Constructions_Global = [0,0,200,600,900,800,700,1500,900]; // Home,Warehouse,Workshop,Armory,FightingPit,ClanHall,Tower
+    uint[] public Constructions_Global = [0,0,200,600,900,800,700,1500,900,300]; // Home,Warehouse,Workshop,Armory,FightingPit,ClanHall,Tower,Market
 
     uint[] public Researches_Global_food = [0,0,5,20,10,20,60];
     uint[] public Productions_Global_food = [0,0,16,20,24,30];
     uint[] public Trainings_Global_food = [0,0,50,60,70,80];
-    uint[] public Constructions_Global_food = [0,0,4,6,8,8,6,6,6];
+    uint[] public Constructions_Global_food = [0,0,4,6,8,8,6,6,6,2];
 
     uint[] public Researches_Global_wood = [0,0,20,5,10,20,10];
     uint[] public Productions_Global_wood = [0,0,40,60,80,80];
     uint[] public Trainings_Global_wood = [0,0,10,10,10,10];
-    uint[] public Constructions_Global_wood = [0,0,8,10,10,12,8,10,12];
+    uint[] public Constructions_Global_wood = [0,0,8,10,10,12,8,10,12,2];
 
     mapping (int256 => mapping (int256 => bool)) public Occupied; // x - y - dolu - boş
 
@@ -417,6 +419,8 @@ for(uint c=1; c<=Realm_BuildingCount[realmnum]; c++){
                 Realm_ResX[realmnum].woodFactor += 1;
             } else if ( Realm_BuildingzX[realmnum][c].typeB == 7 ) {
                 A_Clans.C_Clanhall(realmnum);
+            } else if ( Realm_BuildingzX[realmnum][c].typeB == 9 ) {
+                A_Pool.P_market(realmnum);
             }
         }
     }
@@ -710,6 +714,11 @@ function AddInputter (address inputter) public {
     input = inputter;
 }
 
+function AddInputter2 (address inputter) public {
+    require(msg.sender == owner, "own");
+    input2 = inputter;
+}
+
 function W_AddAttack (uint256 attacker, uint256 target, uint256 askerTop) public {
     require(msg.sender == input, "input");
     Realm_AttacksCount[attacker]++;
@@ -803,6 +812,51 @@ function W_WarDamage (uint256 savunan, uint256 sonuc, uint256 askerTop, uint256 
     
 
 }
+
+
+
+
+
+function P_AddSale (uint256 realmnum, uint256 urunX, uint256 miktarX) public {
+    require(msg.sender == input2, "input");
+    
+    if ( urunX == 1 ) {
+        Realm_ResX[realmnum].food -= miktarX;
+    } else if ( urunX == 2 ) {
+        Realm_ResX[realmnum].wood -= miktarX;
+    } else if ( urunX == 3 ) {
+        Realm_Weapons[realmnum][2] -= miktarX;
+    } else if ( urunX == 4 ) {
+        Realm_Weapons[realmnum][3] -= miktarX;
+    } else if ( urunX == 5 ) {
+        Realm_Weapons[realmnum][4] -= miktarX;
+    } else if ( urunX == 6 ) {
+        Realm_Weapons[realmnum][5] -= miktarX;
+    }
+
+}
+
+
+function P_AddBuy (uint256 realmnum, uint256 urunX, uint256 miktarX) public {
+    require(msg.sender == input2, "input");
+    
+    if ( urunX == 1 ) {
+        Realm_ResX[realmnum].food += miktarX;
+    } else if ( urunX == 2 ) {
+        Realm_ResX[realmnum].wood += miktarX;
+    } else if ( urunX == 3 ) {
+        Realm_Weapons[realmnum][2] += miktarX;
+    } else if ( urunX == 4 ) {
+        Realm_Weapons[realmnum][3] += miktarX;
+    } else if ( urunX == 5 ) {
+        Realm_Weapons[realmnum][4] += miktarX;
+    } else if ( urunX == 6 ) {
+        Realm_Weapons[realmnum][5] += miktarX;
+    }
+
+}
+
+
 
 
 
