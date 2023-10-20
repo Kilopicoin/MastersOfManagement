@@ -101,26 +101,30 @@ function cancelSale (uint256 salesIDX) public {
 function buy (uint256 salesIDX) public {
     uint256 realmnum = RealmCreated[msg.sender];
     require(RealmMarket[realmnum] == true, "Market");
-    require(onSales[salesIDX].miktar != 0, "bos");
-    require(token.balanceOf(address(msg.sender)) >= onSales[salesIDX].Topfiyat, "balanceX");
-    require(token.transferFrom(msg.sender,(address(this)),onSales[salesIDX].Topfiyat));
 
-    uint256 toplamToken = onSales[salesIDX].Topfiyat;
+    address satanAdres = Realm_Addresses[onSales[salesIDX].satan];
+    uint256 urunSira = onSales[salesIDX].urun;
+    uint256 miktarAdet = onSales[salesIDX].miktar;
+    uint256 TopToken = onSales[salesIDX].Topfiyat;
 
-    uint256 forSatan = ( toplamToken * 90 ) / 100;
-	uint256 forWhiteStakeDAOburn = toplamToken / 100; // white, stake1, stake2, DAO, burn
+    require(miktarAdet != 0, "bos");
+    require(token.balanceOf(address(msg.sender)) >= TopToken, "balanceX");
+    require(token.transferFrom(msg.sender,(address(this)),TopToken));
+
+    uint256 forSatan = ( TopToken * 90 ) / 100;
+	uint256 forWhiteStakeDAOburn = TopToken / 100; // white, stake1, stake2, DAO, burn
 
 	uint256 totalDagilan = forSatan + ( forWhiteStakeDAOburn * 5 );
-	prize += (toplamToken - totalDagilan);
+	prize += (TopToken - totalDagilan);
 
     require(token.transfer(whiteHole, forWhiteStakeDAOburn));
 	require(token.transfer(stake1Hole, forWhiteStakeDAOburn));
 	require(token.transfer(stake2Hole, forWhiteStakeDAOburn));
 	require(token.transfer(daoHole, forWhiteStakeDAOburn));
-    require(token.transfer(Realm_Addresses[onSales[salesIDX].satan], forSatan));
+    require(token.transfer(satanAdres, forSatan));
     require(token.burn(forWhiteStakeDAOburn));
 
-    A_Planet.P_AddBuy(realmnum, onSales[salesIDX].urun, onSales[salesIDX].miktar);
+    A_Planet.P_AddBuy(realmnum, urunSira, miktarAdet);
     onSales[salesIDX].miktar = 0;
 }
 
